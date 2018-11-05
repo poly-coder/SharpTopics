@@ -101,3 +101,19 @@ module TopicMessage =
         let set key value = updOpt key (fun _ -> Some value)
         let unset key = updOpt key (fun _ -> None)
         let upd key updFn = updOpt key ((function Some s -> updFn s | None -> updFn defaultValue) >> Some)
+
+    let MessageId = "MsgID"
+    let messageIdOpt msg = MetaString.getOpt MessageId msg
+    let messageId msg = MetaString.get MessageId msg
+    let setMessageId s msg = MetaString.set MessageId s msg
+    let randomMessageId msg = MetaString.set MessageId (System.Guid.NewGuid().ToString()) msg
+
+    let SequenceId = "SeqID"
+    let sequenceOpt msg = MetaUInt64.getOpt SequenceId msg
+    let sequence msg = MetaUInt64.get SequenceId msg
+    let setSequence s msg = MetaUInt64.set SequenceId s msg
+
+    let TimestampId = "Timestamp"
+    let timestampOpt msg = MetaUInt64.getOpt TimestampId msg
+    let timestamp msg = MetaUInt64.get TimestampId msg
+    let setTimestamp s msg = MetaUInt64.set TimestampId s msg
