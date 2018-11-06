@@ -12,6 +12,10 @@ type TopicMessage = {
     data: byte[]
 }
 
+type ITopicMessageSerializer =
+    abstract serialize: TopicMessage -> Async<byte[]>
+    abstract deserialize: byte[] -> Async<TopicMessage>
+
 module TopicMessage =
     let empty: TopicMessage = {
         meta = Map.empty
