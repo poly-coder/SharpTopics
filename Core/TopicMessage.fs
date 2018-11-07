@@ -12,10 +12,6 @@ type TopicMessage = {
     data: byte[]
 }
 
-type ITopicMessageSerializer =
-    abstract serialize: TopicMessage -> Async<byte[]>
-    abstract deserialize: byte[] -> Async<TopicMessage>
-
 module TopicMessage =
     let empty: TopicMessage = {
         meta = Map.empty
@@ -32,6 +28,7 @@ module TopicMessage =
     let addTag tag = updTags (Set.add tag)
     let removeTag tag = updTags (Set.remove tag)
     let unionTags tags = updTags (Set.union tags)
+    let addTags tags = unionTags (Set.ofSeq tags)
     let intersectTags tags = updTags (Set.intersect tags)
 
     let meta msg = msg.meta
@@ -121,3 +118,54 @@ module TopicMessage =
     let timestampOpt msg = MetaUInt64.getOpt TimestampId msg
     let timestamp msg = MetaUInt64.get TimestampId msg
     let setTimestamp s msg = MetaUInt64.set TimestampId s msg
+
+type ITopicMessageSerializer =
+    abstract serialize: TopicMessage -> Async<byte[]>
+    abstract deserialize: byte[] -> Async<TopicMessage>
+
+module TopicMessageSerializer =
+    open MBrace.FsPickler
+    open MBrace.FsPickler.Json
+    open System.IO
+
+    let makeSerializer serialize deserialize =
+        { new ITopicMessageSerializer with
+            member __.serialize msg = serialize msg
+            member __.deserialize data = deserialize data
+        }
+
+    let binary() =
+        let serializer = FsPickler.CreateBinarySerializer()
+        let serialize msg =
+            use stream = new MemoryStream()
+            serializer.Serialize(stream, msg)
+            stream.ToArray() |> async.Return
+        let deserialize data =
+            use stream = new MemoryStream(data: byte[])
+            let msg = serializer.Deserialize<TopicMessage>(stream)
+            msg |> async.Return
+        makeSerializer serialize deserialize
+
+    let xml() =
+        let serializer = FsPickler.CreateXmlSerializer()
+        let serialize msg =
+            use stream = new MemoryStream()
+            serializer.Serialize(stream, msg)
+            stream.ToArray() |> async.Return
+        let deserialize data =
+            use stream = new MemoryStream(data: byte[])
+            let msg = serializer.Deserialize<TopicMessage>(stream)
+            msg |> async.Return
+        makeSerializer serialize deserialize
+
+    let json() =
+        let serializer = FsPickler.CreateJsonSerializer()
+        let serialize msg =
+            use stream = new MemoryStream()
+            serializer.Serialize(stream, msg)
+            stream.ToArray() |> async.Return
+        let deserialize data =
+            use stream = new MemoryStream(data: byte[])
+            let msg = serializer.Deserialize<TopicMessage>(stream)
+            msg |> async.Return
+        makeSerializer serialize deserialize

@@ -37,7 +37,7 @@ module Connect =
 
     let it clusterID clientID =
         make <| fun f -> f.CreateConnection(clusterID, clientID)
-    let withOptions opts clusterID clientID =
+    let fromOptions opts clusterID clientID =
         make <| fun f -> f.CreateConnection(clusterID, clientID, opts)
 
 let inline private query fn (conn: IStanConnection) = fn conn
@@ -52,8 +52,8 @@ let publishWith handler subject data =
 let publishAsync subject data =
     query (fun c -> c.PublishAsync(subject, data) |> Async.AwaitTask)
 
-let subscribe handler subject =
+let subscribe subject handler =
     query (fun c -> c.Subscribe(subject, EventHandler<_>(fun _ args -> handler args)))
 
-let subscribeOpts handler opts subject =
+let subscribeOpts opts subject handler =
     query (fun c -> c.Subscribe(subject, (opts: StanSubscriptionOptions), EventHandler<_>(fun _ args -> handler args)))

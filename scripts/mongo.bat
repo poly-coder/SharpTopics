@@ -1,0 +1,1 @@
+call docker-compose -p sharptopics -f .\docker\docker-compose.dev.yml exec mongo mongo --username Admin --password --authenticationDatabase admin
