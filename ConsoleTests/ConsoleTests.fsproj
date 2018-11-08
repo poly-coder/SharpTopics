@@ -6,6 +6,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="Utils.fs" />
     <Compile Include="Packer.fs" />
     <Compile Include="Mongo.fs" />
     <Compile Include="SerializationTests.fs" />

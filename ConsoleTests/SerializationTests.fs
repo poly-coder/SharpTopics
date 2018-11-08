@@ -29,6 +29,7 @@ let packMeta meta =
         | MetaUInt64 v -> Packer.byte 2uy >> Packer.uint64 v
         | MetaInt64 v -> Packer.byte 3uy >> Packer.int64 v
         | MetaStringList v -> Packer.byte 4uy >> packStringList v
+        | MetaStringSet v -> Packer.byte 4uy >> Packer.array v
     let packValues pk =
         (pk, Map.toSeq meta)
         ||> Seq.fold (fun pk (key, value) ->
@@ -45,7 +46,6 @@ let msgpack() =
         pk 
         |> Packer.uint16 1us
         |> packMeta msg.meta
-        |> Packer.array msg.tags
         |> Packer.binary msg.data
         |> Packer.flush
         |> ignore
@@ -89,7 +89,7 @@ let makeMessageUp seed =
     |> TopicMessage.setSequence (rnd.Next() |> uint64)
     |> TopicMessage.setTimestamp (rnd.Next() |> uint64)
     |> TopicMessage.MetaStringList.set "transform" (randomStringList rnd hexes 1 10 16 32)
-    |> TopicMessage.addTags (randomStringList rnd hexes 0 10 16 32)
+    |> TopicMessage.MetaStringSet.addMany "tags" (randomStringList rnd hexes 0 10 16 32)
     |> TopicMessage.setData (randomArray rnd 10 128 byte 0 255)
 
 let testPickler () =

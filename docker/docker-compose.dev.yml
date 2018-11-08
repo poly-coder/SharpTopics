@@ -7,6 +7,21 @@ services:
     - 4222:4222
     - 8222:8222
 
+  stan:
+    image: nats-streaming
+    ports:
+    - 4223:4222
+    - 8223:8222
+    command: --store file --dir /var/stan/datastore --max_channels 0 --max_subs 0 --max_msgs 0 --max_bytes 0 --max_age 0s
+    volumes:
+    - stan-files:/var/stan/datastore
+
+  stanmem:
+    image: nats-streaming
+    ports:
+    - 4224:4222
+    - 8224:8222
+
   mongo:
     image: mongo
     restart: always
@@ -28,15 +43,6 @@ services:
       ME_CONFIG_MONGODB_ADMINPASSWORD: Admin
       ME_CONFIG_MONGODB_SERVER: mongo
       ME_CONFIG_MONGODB_PORT: 27017
-
-  stan:
-    image: nats-streaming
-    ports:
-    - 4223:4222
-    - 8223:8222
-    command: --store file --dir /var/stan/datastore --max_channels 0 --max_subs 0 --max_msgs 0 --max_bytes 0 --max_age 0s
-    volumes:
-    - stan-files:/var/stan/datastore
 
 volumes:
   stan-files:

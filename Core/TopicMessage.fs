@@ -5,31 +5,21 @@ type MetaData =
     | MetaUInt64 of uint64
     | MetaInt64 of int64
     | MetaStringList of string list
+    | MetaStringSet of string Set
 
 type TopicMessage = {
     meta: Map<string, MetaData>
-    tags: string Set
     data: byte[]
 }
 
 module TopicMessage =
     let empty: TopicMessage = {
         meta = Map.empty
-        tags = Set.empty
         data = [| |]
     }
 
     let data msg = msg.data
     let setData value msg = { msg with data = value }
-
-    let tags msg = msg.tags
-    let setTags value msg = { msg with tags = value }
-    let updTags updFn msg = setTags (tags msg |> updFn) msg
-    let addTag tag = updTags (Set.add tag)
-    let removeTag tag = updTags (Set.remove tag)
-    let unionTags tags = updTags (Set.union tags)
-    let addTags tags = unionTags (Set.ofSeq tags)
-    let intersectTags tags = updTags (Set.intersect tags)
 
     let meta msg = msg.meta
     let setMeta value msg = { msg with meta = value }
@@ -102,10 +92,39 @@ module TopicMessage =
         let set key value = updOpt key (fun _ -> Some value)
         let unset key = updOpt key (fun _ -> None)
         let upd key updFn = updOpt key ((function Some s -> updFn s | None -> updFn defaultValue) >> Some)
+        let append key values = upd key (List.append values)
+        let prepend key value = upd key (fun xs -> value :: xs)
+        let contains key value = get key >> List.contains value
+        let count key = get key >> List.length
+        let isEmpty key = get key >> List.isEmpty
+        let exists key predicate = get key >> List.exists predicate
+
+    module MetaStringSet =
+        let defaultValue: string Set = Set.empty
+        let toTyped = Option.bind <| function MetaStringSet s -> Some s | _ -> None
+        let fromTyped = function 
+            | Some s when not (s = defaultValue) -> Some (MetaStringSet s) 
+            | _ -> None
+
+        let getOpt key = metaKey key >> toTyped
+        let getOr defVal key = getOpt key >> Option.defaultValue defVal
+        let get key = getOr defaultValue key
+        let updOpt key updFn = updMetaKey key (toTyped >> updFn >> fromTyped)
+        let set key value = updOpt key (fun _ -> Some value)
+        let unset key = updOpt key (fun _ -> None)
+        let upd key updFn = updOpt key ((function Some s -> updFn s | None -> updFn defaultValue) >> Some)
+        let add key value = upd key (Set.add value)
+        let addMany key values = upd key (values |> Set.ofSeq |> Set.union)
+        let remove key value = upd key (Set.remove value)
+        let contains key value = get key >> Set.contains value
+        let count key = get key >> Set.count
+        let isEmpty key = get key >> Set.isEmpty
+        let exists key predicate = get key >> Set.exists predicate
 
     let MessageId = "MsgID"
     let messageIdOpt msg = MetaString.getOpt MessageId msg
     let messageId msg = MetaString.get MessageId msg
+    let updMessageIdOpt fn msg = MetaString.updOpt MessageId fn msg
     let setMessageId s msg = MetaString.set MessageId s msg
     let randomMessageId msg = MetaString.set MessageId (System.Guid.NewGuid().ToString()) msg
 

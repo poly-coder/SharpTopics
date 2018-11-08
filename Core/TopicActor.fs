@@ -1,30 +1,30 @@
 module SharpTopics.Core.TopicActor
 
-open Akka.FSharp
-open System
+//open Akka.FSharp
+//open System
 
-type State = {
-    messageCount: uint64
-    nextSequence: TopicSequence
-    lastTimestamp: TopicTimestamp option
-}
+//type State = {
+//    messageCount: uint64
+//    nextSequence: TopicSequence
+//    lastTimestamp: TopicTimestamp option
+//}
 
-type GetStatusResponse =
-| GetStatusResponse of State
+//type GetStatusResponse =
+//| GetStatusResponse of State
 
-type Command =
-| GetStatus
-| AppendMessage of TopicMessage
+//type Command =
+//| GetStatus
+//| AppendMessage of TopicMessage
 
-type internal InternalCommand =
-| InternalInitialize of State
-| InternalInitTimeout of TimeSpan
+//type internal InternalCommand =
+//| InternalInitialize of State
+//| InternalInitTimeout of TimeSpan
 
-type Options = {
-    factory: ITopicStorageFactory
-    topicKey: TopicKey
-    initTimeout: TimeSpan option
-}
+//type Options = {
+//    factory: ITopicStorageFactory
+//    topicKey: TopicKey
+//    initTimeout: TimeSpan option
+//}
 
 //let internal build (st: ITopicStorage) =
 //    fun (mb: Actor<obj>) -> 
