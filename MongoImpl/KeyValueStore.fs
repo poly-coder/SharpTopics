@@ -20,7 +20,7 @@ let createStore (opts: Options<'t>) =
     settings.AssignIdOnInsert <- false
     let collection = opts.database.GetCollection<'t>(opts.collection, settings)
     let filters = Builders<'t>.Filter
-    let _idField = StringFieldDefinition<'t, ObjectId> "_id"
+    let _idField = StringFieldDefinition<'t, string> "_id"
     let oid key = ObjectId(key: string)
     let findOpts =
         let x = FindOptions<'t, 't>()
@@ -29,7 +29,7 @@ let createStore (opts: Options<'t>) =
 
     let get key = async {
         try
-            let filter = filters.Eq(_idField, oid key)
+            let filter = filters.Eq(_idField, key)
             let! cursor = collection.FindAsync(filter, findOpts) |> Async.AwaitTask
             let! list = cursor.ToListAsync() |> Async.AwaitTask
             return Seq.tryHead list |> Ok
@@ -46,7 +46,7 @@ let createStore (opts: Options<'t>) =
 
     let del key = async {
         try
-            let filter = filters.Eq(_idField, oid key)
+            let filter = filters.Eq(_idField, key)
             let! result = collection.DeleteOneAsync(filter) |> Async.AwaitTask
             ignore result
             return Ok ()

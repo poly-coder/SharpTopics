@@ -7,6 +7,7 @@ open MongoDB.Driver
 open MongoDB.Driver.Core
 open MongoDB.Driver.Linq
 open SharpTopics.MongoImpl
+open SharpTopics.Core
 
 //type Contact = {
     
@@ -56,16 +57,25 @@ let openKVStore collectionName =
         { 
             database = db
             collection = collectionName
-            validateKey = fun _ -> Ok() |> async.Return
-            validateValue = fun _ -> Ok() |> async.Return
+            validateKey = fun _ -> AsyncResult.ok()
+            validateValue = fun _ -> AsyncResult.ok()
             updateKey = fun key v -> { v with key = key }
         }
     opts |> KeyValueStore.createStore
 
 let testKeyStorePut () = 
-    async {
+    asyncResult {
         let kvstore = openKVStore "test-kv"
         do! kvstore.put "1234" { key = ""; name = "Iskander"; age = 40 }
+    }
+    |> AsyncResult.getOrExn
+    |> Async.RunSynchronously
 
-        return ()
-    } |> Async.RunSynchronously
+let testKeyStoreGet () = 
+    asyncResult {
+        let kvstore = openKVStore "test-kv"
+        let! item = kvstore.get "1234"
+        printfn "Found item: %A" item
+    }
+    |> AsyncResult.getOrExn
+    |> Async.RunSynchronously

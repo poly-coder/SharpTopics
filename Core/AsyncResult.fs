@@ -101,7 +101,6 @@ module Async =
     let map f = bind (f >> return')
 
 type AsyncResult<'t, 'e> = Async<Result<'t, 'e>>
-type AsyncResultExn<'t> = AsyncResult<'t, exn>
 
 module AsyncResult =
 
@@ -115,26 +114,41 @@ module AsyncResult =
     }
     let matchesSync f fe = matches (f >> Async.return') (fe >> Async.return')
     
-    let bind (f) = matches f (Error >> Async.return')
-    let bindError f = matches Ok f
-    let map f = bind (f >> Ok)
-    let mapError f = bindError (f >> Error)
+    let bind (f: _ -> AsyncResult<_, _>) = matches f (Error >> Async.return')
+    let bindError (f: _ -> AsyncResult<_, _>) = matches ok f
+    let map (f: _ -> AsyncResult<_, _>) = bind (f >> ok)
+    let mapError (f: _ -> AsyncResult<_, _>) = bindError (f >> error)
 
-    let catch fn = try fn() |> ok with exn -> error exn
+    let catch fn: AsyncResult<_, _> = async {
+        try
+            let! a = fn()
+            return! ok a
+        with exn ->
+            return! error exn
+    }
+
+    let ofAsync ma: AsyncResult<_, _> = ma |> Async.map Result.ok
+    let ofResult ma: AsyncResult<_, _> = ma |> Async.return'
     
-    let ofOption = function Some a -> ok a | _ -> error ()
-    let ofOptionError = function Some a -> error a | _ -> ok ()
-    let toOption = function Ok a -> Some a | _ -> None
-    let toOptionError = function Error a -> Some a | _ -> None
+    let ofOption ma = ma |> Result.ofOption |> ofResult
+    let ofOptionError ma = ma |> Result.ofOptionError |> ofResult
 
-    let ofChoice = function Choice1Of2 a -> ok a | Choice2Of2 e -> error e
-    let toChoice = function Ok a -> Choice1Of2 a | Error e -> Choice2Of2 e
+    let ofChoice ma = ma |> Result.ofChoice |> ofResult
 
-    let toList = function Ok a -> [a] | _ -> []
-    let toListError = function Error a -> [a] | _ -> []
+    let getOrExn ma = async {
+        match! ma with
+        | Ok a -> return a
+        | Error e -> return raise e
+    }
+
+    let getOrFail ma = async {
+        match! ma with
+        | Ok a -> return a
+        | Error e -> return failwithf "Error: %A" e
+    }
 
     module Building =
-        let zero = Result.Ok()
+        let zero<'e> : AsyncResult<_, 'e> = ok()
         let inline delay f = f
         let inline run f = f()
         let inline return' a = ok a
@@ -171,5 +185,4 @@ module AsyncResult =
 [<AutoOpen>]
 module AsyncResultAutoOpen =
     let result = Result.builder
-    //let asyncResult = AsyncResult.builder
-    //let asyncResultExn = AsyncResultExn.builder
+    let asyncResult = AsyncResult.builder

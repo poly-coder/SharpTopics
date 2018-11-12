@@ -33,4 +33,3 @@ type ITopicStorage =
 
 type ITopicStorageFactory =
     abstract create: TopicKey -> ITopicStorage
-

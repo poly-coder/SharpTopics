@@ -7,8 +7,10 @@ type MetaData =
     | MetaStringList of string list
     | MetaStringSet of string Set
 
+type TopicMetaData = Map<string, MetaData>
+
 type TopicMessage = {
-    meta: Map<string, MetaData>
+    meta: TopicMetaData
     data: byte[]
 }
 

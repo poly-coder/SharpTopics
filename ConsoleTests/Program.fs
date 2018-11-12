@@ -9,5 +9,6 @@ let main argv =
     // testStanPublish()
     // testStanSubscribe()
     testKeyStorePut()
+    // testKeyStoreGet()
     
     0

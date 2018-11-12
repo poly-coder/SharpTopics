@@ -1,19 +1,19 @@
 ﻿namespace SharpTopics.Core
 
 type IKeyValueStore<'k, 't> =
-    abstract get: 'k -> Async<Result<'t option, exn>>
-    abstract put: 'k -> 't -> Async<Result<unit, exn>>
-    abstract del: 'k -> Async<Result<unit, exn>>
+    abstract get: 'k -> AsyncResult<'t option, exn>
+    abstract put: 'k -> 't -> AsyncResult<unit, exn>
+    abstract del: 'k -> AsyncResult<unit, exn>
 
 module KeyValueStore =
     open Newtonsoft.Json.Schema
 
     type Options<'k, 't> = {
-        validateKey: 'k -> Async<Result<unit, exn>>
-        validateValue: 't -> Async<Result<unit, exn>>
-        get: 'k -> Async<Result<'t option, exn>>
-        put: 'k -> 't -> Async<Result<unit, exn>>
-        del: 'k -> Async<Result<unit, exn>>
+        validateKey: 'k -> AsyncResult<unit, exn>
+        validateValue: 't -> AsyncResult<unit, exn>
+        get: 'k -> AsyncResult<'t option, exn>
+        put: 'k -> 't -> AsyncResult<unit, exn>
+        del: 'k -> AsyncResult<unit, exn>
     }
 
     let makeKeyValueStore (opts: Options<'k, 't>) =
