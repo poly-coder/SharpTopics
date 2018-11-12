@@ -8,6 +8,6 @@ let main argv =
     // testNatsCommunication()
     // testStanPublish()
     // testStanSubscribe()
-    testMongo()
+    testKeyStorePut()
     
     0

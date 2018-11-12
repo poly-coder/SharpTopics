@@ -8,7 +8,7 @@ open SharpTopics.Core
 open SharpTopics.Core.KeyValueStore
 
 type Options<'t> = {
-    conn: IMongoDatabase
+    database: IMongoDatabase
     collection: string
     validateKey: string -> Async<Result<unit, exn>>
     validateValue: 't -> Async<Result<unit, exn>>
@@ -18,7 +18,7 @@ type Options<'t> = {
 let createStore (opts: Options<'t>) =
     let settings = MongoCollectionSettings()
     settings.AssignIdOnInsert <- false
-    let collection = opts.conn.GetCollection<'t>(opts.collection, settings)
+    let collection = opts.database.GetCollection<'t>(opts.collection, settings)
     let filters = Builders<'t>.Filter
     let _idField = StringFieldDefinition<'t, ObjectId> "_id"
     let oid key = ObjectId(key: string)
@@ -60,4 +60,5 @@ let createStore (opts: Options<'t>) =
         validateKey = opts.validateKey
         validateValue = opts.validateValue
     }
+
     makeKeyValueStore kvOptions

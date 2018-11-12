@@ -6,6 +6,7 @@ open MongoDB.Bson.Serialization.Attributes
 open MongoDB.Driver
 open MongoDB.Driver.Core
 open MongoDB.Driver.Linq
+open SharpTopics.MongoImpl
 
 //type Contact = {
     
@@ -21,13 +22,16 @@ let getOrCreateCollection<'a> name (db: IMongoDatabase) = async {
     return db.GetCollection<'a>(name)
 }
 
+let openDatabase connectionString username password dbName = 
+    let settings = MongoClientSettings.FromConnectionString(connectionString);
+    settings.Credential <- MongoCredential.CreateCredential(dbName, username, (password: string))
+    let client = MongoClient(settings)
+    client.GetDatabase(dbName)
+
+
 let testMongo() = 
     async {
-        let settings = MongoClientSettings.FromConnectionString("mongodb://localhost:27017");
-        settings.Credential <- MongoCredential.CreateCredential("admin", "Admin", "Admin")
-        let client = MongoClient(settings)
-        // do! listDatabases client
-        let db = client.GetDatabase("admin")
+        let db = openDatabase "mongodb://localhost:27017" "Admin" "Admin" "admin"
         let! coll = db |> getOrCreateCollection<BsonDocument> "system.version"
         let! count = coll.EstimatedDocumentCountAsync() |> Async.AwaitTask
         printfn "Total count: %d" count
@@ -37,4 +41,31 @@ let testMongo() =
         printfn "Result: %A" (list |> Seq.toList)
     } |> Async.RunSynchronously
 
+type KVItem = {
+    [<BsonId>]
+    key: string
+    [<BsonRequired>]
+    name: string
+    [<BsonRequired>]
+    age: int
+}
 
+let openKVStore collectionName =
+    let db = openDatabase "mongodb://localhost:27017" "Admin" "Admin" "admin"
+    let opts: KeyValueStore.Options<_> = 
+        { 
+            database = db
+            collection = collectionName
+            validateKey = fun _ -> Ok() |> async.Return
+            validateValue = fun _ -> Ok() |> async.Return
+            updateKey = fun key v -> { v with key = key }
+        }
+    opts |> KeyValueStore.createStore
+
+let testKeyStorePut () = 
+    async {
+        let kvstore = openKVStore "test-kv"
+        do! kvstore.put "1234" { key = ""; name = "Iskander"; age = 40 }
+
+        return ()
+    } |> Async.RunSynchronously
