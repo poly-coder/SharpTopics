@@ -8,7 +8,8 @@ let main argv =
     // testNatsCommunication()
     // testStanPublish()
     // testStanSubscribe()
-    testKeyStorePut()
-    // testKeyStoreGet()
+    // testKeyStorePut()
+    testKeyStoreGet()
+    // testKeyStoreDelete()
     
     0

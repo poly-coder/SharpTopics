@@ -1,5 +1,7 @@
 ﻿namespace SharpTopics.Core
 
+open SharpFunky
+
 type TopicKey = string
 type TopicSequence = uint64
 type TopicTimestamp = uint64
@@ -24,12 +26,14 @@ type TopicSnapshot = {
 }
 
 type ITopicSnapshotStore =
-    abstract getSnapshot: TopicKey -> Async<Result<TopicSnapshot, exn>>
-    abstract saveSnapshot: TopicSnapshot -> Async<Result<unit, exn>>
+    abstract getSnapshot: TopicKey -> AsyncResult<TopicSnapshot, exn>
+    abstract saveSnapshot: TopicSnapshot -> AsyncResult<unit, exn>
 
+//module TopicSnapshotStore =
+//    let 
 
-type ITopicStorage =
-    abstract getState: unit -> Async<TopicState>
+//type ITopicStorage =
+//    abstract getState: unit -> Async<TopicState>
 
-type ITopicStorageFactory =
-    abstract create: TopicKey -> ITopicStorage
+//type ITopicStorageFactory =
+//    abstract create: TopicKey -> ITopicStorage

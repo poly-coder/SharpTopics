@@ -8,6 +8,8 @@ open MongoDB.Driver.Core
 open MongoDB.Driver.Linq
 open SharpTopics.MongoImpl
 open SharpTopics.Core
+open SharpFunky
+open SharpFunky.Storage.KeyValueStore
 
 //type Contact = {
     
@@ -53,20 +55,19 @@ type KVItem = {
 
 let openKVStore collectionName =
     let db = openDatabase "mongodb://localhost:27017" "Admin" "Admin" "admin"
-    let opts: KeyValueStore.Options<_> = 
+    let opts: Mongo.Options<_> = 
         { 
             database = db
             collection = collectionName
-            validateKey = fun _ -> AsyncResult.ok()
-            validateValue = fun _ -> AsyncResult.ok()
             updateKey = fun key v -> { v with key = key }
         }
-    opts |> KeyValueStore.createStore
+    opts |> Mongo.fromOptions
 
 let testKeyStorePut () = 
     asyncResult {
         let kvstore = openKVStore "test-kv"
-        do! kvstore.put "1234" { key = ""; name = "Iskander"; age = 40 }
+        let! item = kvstore.put "1234" { key = ""; name = "Iskander"; age = 40 }
+        printfn "Put item: %A" item
     }
     |> AsyncResult.getOrExn
     |> Async.RunSynchronously
@@ -76,6 +77,15 @@ let testKeyStoreGet () =
         let kvstore = openKVStore "test-kv"
         let! item = kvstore.get "1234"
         printfn "Found item: %A" item
+    }
+    |> AsyncResult.getOrExn
+    |> Async.RunSynchronously
+
+let testKeyStoreDelete () = 
+    asyncResult {
+        let kvstore = openKVStore "test-kv"
+        do! kvstore.del "1234"
+        printfn "Deleted item: %A" "1234"
     }
     |> AsyncResult.getOrExn
     |> Async.RunSynchronously

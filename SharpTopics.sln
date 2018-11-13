@@ -13,7 +13,13 @@ Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "NATS.Client.FSharp", "NATS.
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "STAN.Client.FSharp", "STAN.Client.FSharp\STAN.Client.FSharp.fsproj", "{A7005219-8E02-48C0-AFD3-8DA045837744}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MongoImpl", "MongoImpl\MongoImpl.fsproj", "{1207B957-03F9-438E-8BD0-EDB30FD939CE}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "MongoImpl", "MongoImpl\MongoImpl.fsproj", "{1207B957-03F9-438E-8BD0-EDB30FD939CE}"
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "SharpFunky", "SharpFunky\SharpFunky.fsproj", "{1779600E-DD76-4ECD-92F4-6AAFDE5A2796}"
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "SharpFunky.Abstractions", "SharpFunky.Abstractions\SharpFunky.Abstractions.fsproj", "{159FCBCD-872B-47D8-A79E-FC753E3FEEC7}"
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "SharpFunky.Mongo", "SharpFunky.Mongo\SharpFunky.Mongo.fsproj", "{2649D3E3-0FFC-45E2-BD2B-4DB81375890E}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -45,6 +51,18 @@ Global
 		{1207B957-03F9-438E-8BD0-EDB30FD939CE}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{1207B957-03F9-438E-8BD0-EDB30FD939CE}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{1207B957-03F9-438E-8BD0-EDB30FD939CE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1779600E-DD76-4ECD-92F4-6AAFDE5A2796}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1779600E-DD76-4ECD-92F4-6AAFDE5A2796}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1779600E-DD76-4ECD-92F4-6AAFDE5A2796}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1779600E-DD76-4ECD-92F4-6AAFDE5A2796}.Release|Any CPU.Build.0 = Release|Any CPU
+		{159FCBCD-872B-47D8-A79E-FC753E3FEEC7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{159FCBCD-872B-47D8-A79E-FC753E3FEEC7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{159FCBCD-872B-47D8-A79E-FC753E3FEEC7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{159FCBCD-872B-47D8-A79E-FC753E3FEEC7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2649D3E3-0FFC-45E2-BD2B-4DB81375890E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2649D3E3-0FFC-45E2-BD2B-4DB81375890E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2649D3E3-0FFC-45E2-BD2B-4DB81375890E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2649D3E3-0FFC-45E2-BD2B-4DB81375890E}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

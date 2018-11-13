@@ -6,8 +6,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="AsyncResult.fs" />
-    <Compile Include="Storing.fs" />
     <Compile Include="TopicMessage.fs" />
     <Compile Include="TopicStorage.fs" />
     <Compile Include="TopicActor.fs" />
@@ -17,6 +15,11 @@
     <PackageReference Include="FsPickler" Version="5.2.0" />
     <PackageReference Include="FsPickler.Json" Version="5.2.0" />
     <PackageReference Include="Newtonsoft.Json" Version="11.0.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SharpFunky.Abstractions\SharpFunky.Abstractions.fsproj" />
+    <ProjectReference Include="..\SharpFunky\SharpFunky.fsproj" />
   </ItemGroup>
 
 </Project>
