@@ -7,7 +7,7 @@ type IMessagePublisher<'m, 'r> =
     abstract publish: 'm -> AsyncResult<'r, exn>
 
 type IMessageSubscriber<'m> =
-    abstract subscribe: ('m -> unit) -> IDisposable
+    abstract subscribe: AsyncResultFn<'m, unit, exn> -> IDisposable
 
 module MessagePublisher =
 

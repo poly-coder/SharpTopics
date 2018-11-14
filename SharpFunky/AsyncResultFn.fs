@@ -20,6 +20,7 @@ module AsyncResultFn =
     let ofAsync ma = ma |> applyFn AsyncResult.ofAsync
     let ofTask ma = ma |> applyFn AsyncResult.ofTask
     let ofResult ma = ma |> applyFn AsyncResult.ofResult
+    let ofFn ma = ma |> applyFn AsyncResult.ok
 
     let bindAsync f = ofAsync >> bind f
     let mapAsync f = ofAsync >> map f
