@@ -32,4 +32,4 @@ let for' using while' delay body (sequence: _ seq) =
         (fun () -> enum.MoveNext()) |> while' (delay (fun () -> 
             body enum.Current)))
 
-
+let applyFn f fma = fma >> f

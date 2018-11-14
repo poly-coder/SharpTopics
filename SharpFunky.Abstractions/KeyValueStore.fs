@@ -2,10 +2,16 @@ namespace SharpFunky.Storage
 
 open SharpFunky
 
-type IKeyValueStore<'k, 't> =
+type IKeyValueGetter<'k, 't> =
     abstract get: 'k -> AsyncResult<'t option, exn>
+
+type IKeyValuePutter<'k, 't> =
     abstract put: 'k -> 't -> AsyncResult<'t, exn>
     abstract del: 'k -> AsyncResult<unit, exn>
+
+type IKeyValueStore<'k, 't> =
+    inherit IKeyValueGetter<'k, 't>
+    inherit IKeyValuePutter<'k, 't>
 
 module KeyValueStore =
     open System

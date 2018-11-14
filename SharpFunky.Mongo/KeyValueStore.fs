@@ -1,4 +1,3 @@
-[<RequireQualifiedAccess>]
 module SharpFunky.Storage.KeyValueStore.Mongo
 
 open System

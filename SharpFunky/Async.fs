@@ -15,8 +15,15 @@ let notImpl() = delay notImpl
 let bind f ma = async.Bind(ma, f)
 let map f = bind (f >> return')
 
+let ofTask ma = Async.AwaitTask ma
+let ofTaskVoid ma = Async.AwaitTask (ma: Task)
 let toTask ma = Async.StartAsTask ma
 let toTaskVoid ma = toTask ma |> fun t -> t :> Task
+
+let bindTask f = ofTask >> bind f
+let bindTaskVoid f = ofTaskVoid >> bind f
+let mapTask f = ofTask >> map f
+let mapTaskVoid f = ofTaskVoid >> map f
 
 let whenAllSerial source = async {
     let e = (source: _ seq).GetEnumerator()

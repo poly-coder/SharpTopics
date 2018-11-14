@@ -3,22 +3,18 @@
 type AsyncResult<'t, 'e> = Async<Result<'t, 'e>>
 
 module AsyncResult =
-    open Result
-
     let ok v = Result.Ok v |> async.Return
     let error e = Result.Error e |> async.Return
 
-    let matches f fe = fun ma -> async {
-        match! ma with
-        | Ok v -> return! f v 
-        | Error e -> return! fe e
-    }
+    let matches f fe = Async.bind (Result.matches f fe)
     let matchesSync f fe = matches (f >> Async.return') (fe >> Async.return')
     
     let bind (f: _ -> AsyncResult<_, _>) = matches f (Error >> Async.return')
     let bindError (f: _ -> AsyncResult<_, _>) = matches ok f
-    let map (f: _ -> AsyncResult<_, _>) = bind (f >> ok)
-    let mapError (f: _ -> AsyncResult<_, _>) = bindError (f >> error)
+    let map f = bind (f >> ok)
+    let mapError f = bindError (f >> error)
+    let ignoreAll ma = ma |> matchesSync ignore ignore
+    let ignore ma = ma |> map ignore
 
     let catch fn: AsyncResult<_, _> = async {
         try
