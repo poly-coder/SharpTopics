@@ -8,10 +8,11 @@
     <Compile Include="AzureStorage.fs" />
     <Compile Include="KeyValueStore.AzureTables.fs" />
     <Compile Include="KeyValueStore.AzureBlobs.fs" />
+    <Compile Include="MessageSubscriber.AzureQueues.fs" />
+    <Compile Include="MessagePublisher.AzureQueues.fs" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Azure.ServiceBus" Version="3.1.1" />
     <PackageReference Include="WindowsAzure.Storage" Version="9.3.2" />
   </ItemGroup>
 

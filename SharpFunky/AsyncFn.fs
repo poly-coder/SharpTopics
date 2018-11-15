@@ -10,6 +10,7 @@ module AsyncFn =
     
     let bind f = applyFn (Async.bind f)
     let map f = applyFn (Async.map f)
+    let ignore ma = ma |> map ignore
 
     let ofTask ma = ma |> applyFn Async.ofTask
     let ofTaskVoid ma = ma |> applyFn Async.ofTaskVoid

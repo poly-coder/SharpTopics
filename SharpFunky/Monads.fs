@@ -17,7 +17,7 @@ let tryFinally returnFrom compensation ma =
     finally compensation ()
 
 let using tryFinally body res =
-    body res |> tryFinally (fun () -> dispose res)
+    body res |> tryFinally (fun () -> disposeOf res)
 
 let while' zero body guard =
     let rec loop() =

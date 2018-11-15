@@ -14,7 +14,8 @@ let sndArg _ a = a
 let toObj a = a :> obj
 let fromObj<'a> (o: obj) = o :?> 'a
 let objRefEq a b = obj.ReferenceEquals(a, b)
-let disposeOf (e: #System.IDisposable) = e.Dispose()
+let disposeOf (e: #System.IDisposable) =
+    match e with null -> () | e -> e.Dispose()
 let isNotNull o = isNull o |> not
 
 let append xs lst = lst @ xs
@@ -41,9 +42,6 @@ let uncurry f = fun (a, b) -> f a b
 let notImpl = fun _ -> raise <| System.NotImplementedException()
 let notImpl2 = fun _ _ -> raise <| System.NotImplementedException()
 let notImpl3 = fun _ _ _ -> raise <| System.NotImplementedException()
-
-let dispose (res: #IDisposable) =
-    match res with null -> () | disp -> disp.Dispose()
 
 type BinarySearchResult =
   | ItShouldHaveBeenAt of int

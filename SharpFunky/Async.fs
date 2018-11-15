@@ -20,6 +20,9 @@ let ofTaskVoid ma = Async.AwaitTask (ma: Task)
 let toTask ma = Async.StartAsTask ma
 let toTaskVoid ma = toTask ma |> fun t -> t :> Task
 
+let inline startAsTask ma = ma |> Async.StartAsTask
+let inline startAsTaskVoid ma = ma |> startAsTask |> fun t -> t :> Task
+
 let bindTask f = ofTask >> bind f
 let bindTaskVoid f = ofTaskVoid >> bind f
 let mapTask f = ofTask >> map f

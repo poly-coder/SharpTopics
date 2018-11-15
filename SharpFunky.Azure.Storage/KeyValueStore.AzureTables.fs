@@ -1,12 +1,9 @@
 module SharpFunky.Storage.KeyValueStore.AzureTables
 
-open System
 open SharpFunky
 open SharpFunky.Conversion
 open SharpFunky.Storage
 open Microsoft.WindowsAzure.Storage.Table
-open Microsoft.WindowsAzure.Storage
-open System.IO
 
 type Options<'a> = {
     table: CloudTable
@@ -50,7 +47,7 @@ let fromOptions opts =
             )
         TableQuery().Where(filter)
 
-    let extractData (item: DynamicTableEntity) = asyncResult {
+    let extractData (item: DynamicTableEntity) =
         let data = ref None
         let map = ref Map.empty
         let err = ref None
@@ -78,12 +75,17 @@ let fromOptions opts =
         | None ->
             match !data with
             | None -> 
-                return! "Data column not found" |> exn |> AsyncResult.error
+                "Data column not found" |> exn |> Result.error
             | Some data ->
-                return data, !map
-        | Some e -> return! AsyncResult.error e
-    }
+                (data, !map) |> Result.ok
+        | Some e -> Result.error e
         
+    let insertData meta data (item: DynamicTableEntity) =
+        for k, v in meta |> Map.toSeq do
+            let prop = EntityProperty.GeneratePropertyForString(v)
+            item.Properties.Add(k, prop)
+        item.Properties.Add(opts.dataColumnName, EntityProperty.GeneratePropertyForString(data))
+
     let get key =
         asyncResult {
             let query = makeQuery key
@@ -91,29 +93,26 @@ let fromOptions opts =
             match segment.Results |> Seq.tryHead with
             | None -> return None
             | Some item ->
-                let! data, meta = extractData item
+                let! data, meta = extractData item |> AsyncResult.ofResult
                 let! result = opts.converter.convertBack(meta, data)
                 return Some result
         }
 
     let put key value =
         asyncResult {
-            let! converted = opts.converter.convert value
-            let meta, bytes = converted
-            let blobName = getBlobName key
-            let blobRef = opts.table.GetBlockBlobReference(blobName)
-            do! blobRef.FetchAttributesAsync() |> AsyncResult.ofTaskVoid
-            for k, v in meta |> Map.toSeq do
-                do blobRef.Metadata.[k] <- v
-            do! blobRef.SetMetadataAsync() |> AsyncResult.ofTaskVoid
-            do! blobRef.UploadFromByteArrayAsync(bytes, 0, bytes.Length) |> AsyncResult.ofTaskVoid
+            let value' = opts.updateKey key value
+            let! meta, data = opts.converter.convert value'
+            let item = DynamicTableEntity()
+            do insertData meta data item 
+            let op = TableOperation.InsertOrReplace(item)
+            do! opts.table.ExecuteAsync(op) |> AsyncResult.ofTaskVoid
         }
         
     let del key =
         asyncResult {
-            let blobName = getBlobName key
-            let blobRef = opts.table.GetBlockBlobReference(blobName)
-            do! blobRef.DeleteIfExistsAsync() |> AsyncResult.ofTaskVoid
+            let item = DynamicTableEntity(opts.partitionKey, getRowKey key)
+            let op = TableOperation.Delete(item)
+            do! opts.table.ExecuteAsync(op) |> AsyncResult.ofTaskVoid
         }
 
     KeyValueStore.createInstance get put del

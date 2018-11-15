@@ -132,4 +132,23 @@ module Decimal =
   let tryParse str =
     System.Decimal.TryParse(str, NumberStyles.Integer, String.invariantCulture) |> Option.ofTryOp
 
+module Disposable =
+    open System.Threading
 
+    let dispose d = disposeOf d
+
+    let createInstance fn =
+        { new IDisposable with
+            member __.Dispose() = fn() }
+    
+    let create fn =
+        let disposed = ref false
+        let dispose () = if not !disposed then disposed := true; fn()
+        createInstance dispose
+    
+    let createThreadSafe fn =
+        let disposed = ref 0
+        let dispose() = if Interlocked.CompareExchange(disposed, 1, 0) = 0 then fn()
+        createInstance dispose
+
+    let noop = createInstance ignore

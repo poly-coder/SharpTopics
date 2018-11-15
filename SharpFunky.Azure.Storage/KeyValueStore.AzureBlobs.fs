@@ -1,11 +1,10 @@
 module SharpFunky.Storage.KeyValueStore.AzureBlobs
 
-open System
 open SharpFunky
 open SharpFunky.Conversion
 open SharpFunky.Storage
-open Microsoft.WindowsAzure.Storage.Blob
 open Microsoft.WindowsAzure.Storage
+open Microsoft.WindowsAzure.Storage.Blob
 open System.IO
 
 type Options<'a> = {

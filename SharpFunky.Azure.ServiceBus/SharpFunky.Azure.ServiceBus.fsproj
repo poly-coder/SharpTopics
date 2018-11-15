@@ -5,7 +5,14 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="Library.fs" />
+    <Compile Include="MessageSubscriber.AzureServiceBus.fs" />
+    <Compile Include="MessagePublisher.AzureServiceBus.fs" />
+  </ItemGroup>
+
+  <ItemGroup />
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Azure.ServiceBus" Version="3.1.1" />
   </ItemGroup>
 
   <ItemGroup>
