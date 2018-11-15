@@ -3,6 +3,8 @@
 type AsyncResult<'t, 'e> = Async<Result<'t, 'e>>
 
 module AsyncResult =
+    open System.Threading.Tasks
+
     let ok v = Result.Ok v |> async.Return
     let error e = Result.Error e |> async.Return
 
@@ -24,8 +26,15 @@ module AsyncResult =
             return! error exn
     }
 
-    let ofAsync ma: AsyncResult<_, _> = ma |> Async.map Result.ok
-    let ofTask ma: AsyncResult<_, _> = ma |> Async.AwaitTask |> ofAsync
+    let ofAsync ma: AsyncResult<_, _> = async {
+        try
+            let! a = ma
+            return Result.ok a
+        with exn ->
+            return Result.error exn
+    }
+    let ofTask ma = ma |> Async.AwaitTask |> ofAsync
+    let ofTaskVoid (ma: Task) = ma |> Async.AwaitTask |> ofAsync
     let ofResult ma: AsyncResult<_, _> = ma |> Async.return'
     
     let ofOption ma = ma |> Result.ofOption |> ofResult
@@ -65,17 +74,17 @@ module AsyncResult =
 
             member this.Zero() = zero
             member this.Return(a) = return' a
-            member this.ReturnFrom ma = returnFrom (ma: AsyncResult<_, _>)
-            member this.ReturnFrom ma = returnFrom (ofResult ma)
-            member this.ReturnFrom (ma: Task<Result<_, _>>) = returnFrom (ofTask ma)
+            member this.ReturnFrom ma = returnFrom ma
+            //member this.ReturnFrom ma = returnFrom (ofResult ma)
+            //member this.ReturnFrom (ma: Task<Result<_, _>>) = returnFrom (ofTask ma)
 
             member this.Bind(ma, f) = bind f ma
-            member this.Bind(ma, f) = bind (f >> ofResult) ma
-            member this.Bind(ma, f) = bind (f >> ofTask) ma
+            //member this.Bind(ma, f) = bind (f >> ofResult) ma
+            //member this.Bind(ma, f) = bind (f >> ofTask) ma
 
             member this.Combine(mu, mb: _ -> AsyncResult<_, _>) = this.Bind(mu, mb)
-            member this.Combine(mu, mb: _ -> Result<_, _>) = this.Bind(mu, mb)
-            member this.Combine(mu, mb: _ -> Task<_>) = this.Bind(mu, mb)
+            //member this.Combine(mu, mb: _ -> Result<_, _>) = this.Bind(mu, mb)
+            //member this.Combine(mu, mb: _ -> Task<_>) = this.Bind(mu, mb)
 
             member this.TryWith(ma, handler) = tryWith handler ma
 

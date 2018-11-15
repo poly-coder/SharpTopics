@@ -44,6 +44,7 @@ module String =
 module Byte =
   let minValue = System.Byte.MinValue
   let maxValue = System.Byte.MaxValue
+  let toString (b: byte) = b.ToString()
   let parseWith styles provider str =
     System.Byte.Parse(str, styles, provider)
   let tryParseWith styles provider str =
@@ -56,6 +57,7 @@ module Byte =
 module Int16 =
   let minValue = System.Int16.MinValue
   let maxValue = System.Int16.MaxValue
+  let toString (b: int16) = b.ToString()
   let parseWith styles provider str =
     System.Int16.Parse(str, styles, provider)
   let tryParseWith styles provider str =
@@ -68,6 +70,7 @@ module Int16 =
 module Int32 =
   let minValue = System.Int32.MinValue
   let maxValue = System.Int32.MaxValue
+  let toString (b: int) = b.ToString()
   let parseWith styles provider str =
     System.Int32.Parse(str, styles, provider)
   let tryParseWith styles provider str =
@@ -80,6 +83,7 @@ module Int32 =
 module Int64 =
   let minValue = System.Int64.MinValue
   let maxValue = System.Int64.MaxValue
+  let toString (b: int64) = b.ToString()
   let parseWith styles provider str =
     System.Int64.Parse(str, styles, provider)
   let tryParseWith styles provider str =
@@ -92,6 +96,7 @@ module Int64 =
 module Single =
   let minValue = System.Single.MinValue
   let maxValue = System.Single.MaxValue
+  let toString (b: float32) = b.ToString()
   let parseWith styles provider str =
     System.Single.Parse(str, styles, provider)
   let tryParseWith styles provider str =
@@ -104,6 +109,7 @@ module Single =
 module Double =
   let minValue = System.Double.MinValue
   let maxValue = System.Double.MaxValue
+  let toString (b: float) = b.ToString()
   let parseWith styles provider str =
     System.Double.Parse(str, styles, provider)
   let tryParseWith styles provider str =
@@ -116,6 +122,7 @@ module Double =
 module Decimal =
   let minValue = System.Decimal.MinValue
   let maxValue = System.Decimal.MaxValue
+  let toString (b: decimal) = b.ToString()
   let parseWith styles provider str =
     System.Decimal.Parse(str, styles, provider)
   let tryParseWith styles provider str =

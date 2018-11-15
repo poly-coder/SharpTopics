@@ -1,6 +1,5 @@
 ﻿module SharpTopics.StanImpl.Publisher
 open STAN.Client
-open STAN.Client.FSharp
 open SharpTopics.Core
 open System.Threading
 

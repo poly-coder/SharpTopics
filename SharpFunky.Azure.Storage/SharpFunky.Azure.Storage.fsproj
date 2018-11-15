@@ -1,0 +1,23 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="AzureStorage.fs" />
+    <Compile Include="KeyValueStore.AzureTables.fs" />
+    <Compile Include="KeyValueStore.AzureBlobs.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Azure.ServiceBus" Version="3.1.1" />
+    <PackageReference Include="WindowsAzure.Storage" Version="9.3.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SharpFunky.Abstractions\SharpFunky.Abstractions.fsproj" />
+    <ProjectReference Include="..\SharpFunky\SharpFunky.fsproj" />
+  </ItemGroup>
+
+</Project>

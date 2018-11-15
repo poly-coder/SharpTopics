@@ -12,6 +12,7 @@
     <Compile Include="Seq.fs" />
     <Compile Include="Option.fs" />
     <Compile Include="Result.fs" />
+    <Compile Include="ResultFn.fs" />
     <Compile Include="AsyncOption.fs" />
     <Compile Include="AsyncResult.fs" />
     <Compile Include="AsyncResultFn.fs" />

@@ -12,7 +12,7 @@ module MessagePublisher =
         type Options<'t> = {
             subject: string
             connection: IConnection
-            converter: IConverter<'t, byte[]>
+            converter: IAsyncConverter<'t, byte[]>
         }
 
         [<RequireQualifiedAccess>]
@@ -38,7 +38,7 @@ module MessagePublisher =
         type Options<'t> = {
             subject: string
             connection: IStanConnection
-            converter: IConverter<'t, byte[]>
+            converter: IAsyncConverter<'t, byte[]>
         }
 
         [<RequireQualifiedAccess>]
@@ -67,7 +67,7 @@ module MessageSubscriber =
             subject: string
             queue: string option
             connection: IConnection
-            converter: IConverter<byte[], 't>
+            converter: IAsyncConverter<byte[], 't>
             messageLimit: int64
             bytesLimit: int64
             autoUnsubscribe: int option
@@ -123,7 +123,7 @@ module MessageSubscriber =
             subject: string
             queue: string option
             connection: IStanConnection
-            converter: IConverter<byte[], 't>
+            converter: IAsyncConverter<byte[], 't>
         }
 
         [<RequireQualifiedAccess>]

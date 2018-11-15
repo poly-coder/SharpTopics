@@ -30,32 +30,26 @@ let fromOptions opts =
     let _idField = StringFieldDefinition<'t, string> "_id"
     let findOpts = FindOptions<'t, 't>() |> tee (fun x -> x.Limit <- Nullable 1)
 
-    let get key = async {
-        try
+    let get key =
+        async {
             let filter = filters.Eq(_idField, key)
             let! cursor = collection.FindAsync(filter, findOpts) |> Async.AwaitTask
             let! list = cursor.ToListAsync() |> Async.AwaitTask
-            return Seq.tryHead list |> Ok
-        with exn ->
-            return Error exn
-    }
+            return Seq.tryHead list
+        } |> AsyncResult.ofAsync
 
-    let put key value = async {
-        try
+    let put key value =
+        async {
             let value' = opts.updateKey key value
             do! collection.InsertOneAsync(value') |> Async.AwaitTask
-            return Ok value'
-        with exn ->
-            return Error exn
-    }
+            return ()
+        } |> AsyncResult.ofAsync
 
-    let del key = async {
-        try
+    let del key = 
+        async {
             let filter = filters.Eq(_idField, key)
             let! result = collection.DeleteOneAsync(filter) |> Async.AwaitTask
             ignore result
-            return Ok ()
-        with exn ->
-            return Error exn
-    }
+            return ()
+        } |> AsyncResult.ofAsync
     KeyValueStore.createInstance get put del

@@ -6,7 +6,7 @@ type IKeyValueGetter<'k, 't> =
     abstract get: 'k -> AsyncResult<'t option, exn>
 
 type IKeyValuePutter<'k, 't> =
-    abstract put: 'k -> 't -> AsyncResult<'t, exn>
+    abstract put: 'k -> 't -> AsyncResult<unit, exn>
     abstract del: 'k -> AsyncResult<unit, exn>
 
 type IKeyValueStore<'k, 't> =
@@ -29,7 +29,6 @@ module KeyValueStore =
             (fun _ _ -> AsyncResult.error (NotSupportedException("") :> _))
             (fun _ -> AsyncResult.ok())
 
-    [<RequireQualifiedAccess>]
     module InMemory =
         type Options<'k, 't when 'k: comparison> = {
             initMap: Map<'k, 't>
@@ -48,7 +47,7 @@ module KeyValueStore =
 
         type internal Command<'k, 't> =
         | GetCmd of 'k * AsyncReplyChannel<AsyncResult<'t option, exn>>
-        | PutCmd of 'k * 't * AsyncReplyChannel<AsyncResult<'t, exn>>
+        | PutCmd of 'k * 't * AsyncReplyChannel<AsyncResult<unit, exn>>
         | DelCmd of 'k * AsyncReplyChannel<AsyncResult<unit, exn>>
 
         let fromOptions opts =
@@ -65,7 +64,7 @@ module KeyValueStore =
                     | PutCmd (key, value, rep) ->
                         let value' = updateValue key value
                         let map' = map |> Map.add key value'
-                        do rep.Reply <| AsyncResult.ok value'
+                        do rep.Reply <| AsyncResult.ok ()
                         return! loop map'
 
                     | DelCmd (key, rep) ->
@@ -79,16 +78,18 @@ module KeyValueStore =
                 let! res = mailbox.PostAndAsyncReply(f)
                 return! res
             }
-            let get key = send <| fun rep -> GetCmd(key, rep)
-            let put key value = send <| fun rep -> PutCmd(key, value, rep)
-            let del key = send <| fun rep -> DelCmd(key, rep)
+            let get key =
+                send <| fun rep -> GetCmd(key, rep)
+            let put key value =
+                send <| fun rep -> PutCmd(key, value, rep)
+            let del key =
+                send <| fun rep -> DelCmd(key, rep)
             createInstance get put del
 
         let from map = Options.empty |> Options.withInitMap map |> fromOptions 
         
         let empty() = from Map.empty
 
-    [<RequireQualifiedAccess>]
     module Validated =
         type Options<'k, 't when 'k: comparison> = {
             validateKey: 'k -> AsyncResult<unit, exn>
@@ -119,6 +120,41 @@ module KeyValueStore =
             }
             let del key = asyncResult {
                 do! opts.validateKey key
+                return! opts.store.del key
+            }
+            createInstance get put del
+
+    module ConvertedValue =
+        open SharpFunky.Conversion
+
+        type Options<'k, 'a, 'b when 'k: comparison> = {
+            converter: IAsyncReversibleConverter<'a, 'b>
+            store: IKeyValueStore<'k, 'b>
+        }
+
+        [<RequireQualifiedAccess>]
+        module Options =
+            let fromStore store converter = 
+                {
+                    store = store
+                    converter = converter
+                }
+        
+        let fromOptions opts =
+            let get key = asyncResult {
+                let! b = opts.store.get key
+                match b with
+                | Some b ->
+                    let! a = opts.converter.convertBack b
+                    return Some a
+                | None ->
+                    return None
+            }
+            let put key value = asyncResult {
+                let! b = opts.converter.convert value
+                return! opts.store.put key b
+            }
+            let del key = asyncResult {
                 return! opts.store.del key
             }
             createInstance get put del
