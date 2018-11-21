@@ -71,6 +71,7 @@ module MessageSubscriber =
             messageLimit: int64
             bytesLimit: int64
             autoUnsubscribe: int option
+            onError: AsyncFn<exn, unit>
         }
 
         [<RequireQualifiedAccess>]
@@ -84,6 +85,7 @@ module MessageSubscriber =
                     messageLimit = 1L <<< 10
                     bytesLimit = 10L <<< 20
                     autoUnsubscribe = None
+                    onError = AsyncFn.return' ()
                 }
 
             let withQueue queue o = { o with queue = Some queue }
@@ -91,25 +93,39 @@ module MessageSubscriber =
             let withMessageLimit messageLimit o = { o with messageLimit = messageLimit }
             let withBytesLimit bytesLimit o = { o with bytesLimit = bytesLimit }
             let withAutoUnsubscribe max o = { o with autoUnsubscribe = Some max }
+            let withOnError value = fun opts -> { opts with onError = value }
 
         let fromOptions opts =
             let subscribe handler =
                 let handler' (_: obj) (args: MsgHandlerEventArgs) =
-                    asyncResult {
-                        let! msg = opts.converter.convert args.Message.Data
-                        do! handler msg
+                    async {
+                        let! msgResult = opts.converter.convert args.Message.Data
+                        match msgResult with
+                        | Ok msg ->
+                            do! handler msg
+                        | Error exn ->
+                            do! opts.onError exn
                     }
-                    |> AsyncResult.ignoreAll
+                    |> Async.ignoreExn
                     |> Async.StartAsTask
                     |> ignore
+
                 let sub =
                     match opts.queue with
-                    | Some q -> opts.connection.SubscribeAsync(opts.subject, q, EventHandler<MsgHandlerEventArgs> handler')
-                    | None -> opts.connection.SubscribeAsync(opts.subject, EventHandler<MsgHandlerEventArgs> handler')
+                    | Some q ->
+                        opts.connection.SubscribeAsync(
+                            opts.subject, q, 
+                            EventHandler<MsgHandlerEventArgs> handler')
+                    | None ->
+                        opts.connection.SubscribeAsync(
+                            opts.subject, 
+                            EventHandler<MsgHandlerEventArgs> handler')
+
                 do sub.SetPendingLimits(opts.messageLimit, opts.bytesLimit)
                 match opts.autoUnsubscribe with
                 | Some v -> do sub.AutoUnsubscribe(v)
                 | None _ -> do ()
+
                 do sub.Start()
                 { new IDisposable with
                     member __.Dispose() = sub.Unsubscribe() }
@@ -124,35 +140,52 @@ module MessageSubscriber =
             queue: string option
             connection: IStanConnection
             converter: IAsyncConverter<byte[], 't>
+            onError: AsyncFn<exn, unit>
         }
 
         [<RequireQualifiedAccess>]
         module Options =
-            let from subject queue connection converter = 
+            let from subject connection converter = 
                 {
                     subject = subject
-                    queue = queue
+                    queue = None
                     connection = connection
                     converter = converter
+                    onError = AsyncFn.return' ()
                 }
+
+            let withQueue queue o = { o with queue = Some queue }
+            let withoutQueue o = { o with queue = None }
+            let withOnError value = fun opts -> { opts with onError = value }
 
         let fromOptions opts =
             let subscribe handler =
                 let handler' (_: obj) (args: StanMsgHandlerArgs) =
-                    asyncResult {
-                        let! msg = opts.converter.convert args.Message.Data
-                        do! handler msg
-                        args.Message.Ack()
+                    async {
+                        let! msgResult = opts.converter.convert args.Message.Data
+                        match msgResult with
+                        | Ok msg ->
+                            do! handler msg
+                            do args.Message.Ack()
+                        | Error exn ->
+                            do! opts.onError exn
                     }
-                    |> AsyncResult.ignoreAll
+                    |> Async.ignoreExn
                     |> Async.StartAsTask
                     |> ignore
+
                 let sub =
                     match opts.queue with
-                    | Some q -> opts.connection.Subscribe(opts.subject, q, handler')
-                    | None -> opts.connection.Subscribe(opts.subject, EventHandler<StanMsgHandlerArgs> handler')
+                    | Some q ->
+                        opts.connection.Subscribe(
+                            opts.subject, q, 
+                            EventHandler<StanMsgHandlerArgs> handler')
+                    | None ->
+                        opts.connection.Subscribe(
+                            opts.subject,
+                            EventHandler<StanMsgHandlerArgs> handler')
+
                 { new IDisposable with
                     member __.Dispose() = sub.Unsubscribe() }
                 
             MessageSubscriber.createInstance subscribe
-

@@ -28,6 +28,10 @@ let bindTaskVoid f = ofTaskVoid >> bind f
 let mapTask f = ofTask >> map f
 let mapTaskVoid f = ofTaskVoid >> map f
 
+let ignoreExn ma = async {
+    try do! ma with _ -> ()
+}
+
 let whenAllSerial source = async {
     let e = (source: _ seq).GetEnumerator()
     let rec loop l moved = async {

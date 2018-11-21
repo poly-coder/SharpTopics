@@ -39,8 +39,10 @@ let fromOptions opts =
                 | Ok value ->
                     do! handler value
                     do! opts.queue.CompleteAsync(msg.SystemProperties.LockToken) |> Async.ofTaskVoid
-                | Error e ->
-                    raise e
+                | Error exn ->
+                    if opts.abandonOnError then
+                        do! opts.queue.AbandonAsync(msg.SystemProperties.LockToken) |> Async.ofTaskVoid
+                    raise exn
             } 
             |> Async.startAsTaskVoid
         let exnHandler' (args: ExceptionReceivedEventArgs) = 
