@@ -1,6 +1,7 @@
 ﻿namespace SharpFunky
 
 type AsyncFn<'a, 'b> = 'a -> Async<'b>
+type AsyncMiddleware<'a, 'b> = AsyncFn<'a, 'b> -> AsyncFn<'a, 'b>
 
 module AsyncFn =
     let return' v = fun _ -> Async.return' v

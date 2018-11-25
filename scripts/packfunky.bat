@@ -1,0 +1,1 @@
+call node scripts\packscript.js %*
