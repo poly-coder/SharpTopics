@@ -6,7 +6,6 @@ open MongoDB.Bson.Serialization.Attributes
 open MongoDB.Driver
 open MongoDB.Driver.Core
 open MongoDB.Driver.Linq
-open SharpTopics.MongoImpl
 open SharpTopics.Core
 open SharpFunky
 open SharpFunky.Storage.KeyValueStore

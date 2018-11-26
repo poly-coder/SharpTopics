@@ -1,0 +1,6 @@
+{
+  "fs": "**/*.fsproj",
+  "cs": "**/*.csproj",
+  "funky": "**/SharpFunky*.fsproj",
+  "client": "**/*.Client.FSharp.fsproj"
+}
