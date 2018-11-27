@@ -1,6 +1,6 @@
 {
   "name": "SharpTopics",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "description": "",
   "main": "index.js",
   "scripts": {
@@ -8,13 +8,13 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/poly-coder/SharpTopics.git"
+    "url": "git+https://github.com/poly-coder/SharpClients.git"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/poly-coder/SharpTopics/issues"
+    "url": "https://github.com/poly-coder/SharpClients/issues"
   },
   "homepage": "https://github.com/poly-coder/SharpTopics#readme",
   "devDependencies": {
