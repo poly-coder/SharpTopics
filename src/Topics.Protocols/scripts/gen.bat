@@ -1,0 +1,1 @@
+call %UserProfile%\.nuget\packages\grpc.tools\1.17.0\tools\windows_x64\protoc.exe -I.\proto --csharp_out . --grpc_out . .\proto\Topics.proto --plugin=protoc-gen-grpc=%UserProfile%\.nuget\packages\grpc.tools\1.17.0\tools\windows_x64\grpc_csharp_plugin.exe

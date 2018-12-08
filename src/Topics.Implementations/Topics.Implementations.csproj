@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MongoDB.Driver" Version="2.7.2" />
+    <PackageReference Include="NATS.Client" Version="0.8.1" />
+    <PackageReference Include="STAN.Client" Version="0.1.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Topics.Abstractions\Topics.Abstractions.csproj" />
+    <ProjectReference Include="..\Topics.Protocols\Topics.Protocols.csproj" />
+  </ItemGroup>
+
+</Project>
