@@ -5,13 +5,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="Interfaces.fs" />
-    <Compile Include="Topics.fs" />
+    <Compile Include="Lenses.fs" />
+    <Compile Include="Message.fs" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Orleans.Core.Abstractions" Version="2.2.0" />
-    <PackageReference Include="Microsoft.Orleans.OrleansCodeGenerator" Version="2.2.0" />
     <PackageReference Include="SharpFunky" Version="0.0.4" />
   </ItemGroup>
 

@@ -1,8 +1,0 @@
-E:\Dev\GitHub\poly-coder\SharpTopics\src\SharpTopics.FsInterfaces\bin\Debug\netstandard2.0\SharpTopics.FsInterfaces.deps.json
-E:\Dev\GitHub\poly-coder\SharpTopics\src\SharpTopics.FsInterfaces\bin\Debug\netstandard2.0\SharpTopics.FsInterfaces.dll
-E:\Dev\GitHub\poly-coder\SharpTopics\src\SharpTopics.FsInterfaces\obj\Debug\netstandard2.0\SharpTopics.FsInterfaces.fsprojAssemblyReference.cache
-E:\Dev\GitHub\poly-coder\SharpTopics\src\SharpTopics.FsInterfaces\obj\Debug\netstandard2.0\SharpTopics.FsInterfaces.AssemblyInfoInputs.cache
-E:\Dev\GitHub\poly-coder\SharpTopics\src\SharpTopics.FsInterfaces\obj\Debug\netstandard2.0\SharpTopics.FsInterfaces.AssemblyInfo.fs
-E:\Dev\GitHub\poly-coder\SharpTopics\src\SharpTopics.FsInterfaces\bin\Debug\netstandard2.0\SharpTopics.FsInterfaces.pdb
-E:\Dev\GitHub\poly-coder\SharpTopics\src\SharpTopics.FsInterfaces\obj\Debug\netstandard2.0\SharpTopics.FsInterfaces.dll
-E:\Dev\GitHub\poly-coder\SharpTopics\src\SharpTopics.FsInterfaces\obj\Debug\netstandard2.0\SharpTopics.FsInterfaces.pdb
