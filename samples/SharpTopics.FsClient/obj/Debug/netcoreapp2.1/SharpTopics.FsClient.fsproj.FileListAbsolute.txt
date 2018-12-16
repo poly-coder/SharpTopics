@@ -1,0 +1,13 @@
+E:\Dev\GitHub\poly-coder\SharpTopics\samples\SharpTopics.FsClient\bin\Debug\netcoreapp2.1\SharpTopics.FsClient.deps.json
+E:\Dev\GitHub\poly-coder\SharpTopics\samples\SharpTopics.FsClient\bin\Debug\netcoreapp2.1\SharpTopics.FsClient.runtimeconfig.json
+E:\Dev\GitHub\poly-coder\SharpTopics\samples\SharpTopics.FsClient\bin\Debug\netcoreapp2.1\SharpTopics.FsClient.runtimeconfig.dev.json
+E:\Dev\GitHub\poly-coder\SharpTopics\samples\SharpTopics.FsClient\bin\Debug\netcoreapp2.1\SharpTopics.FsClient.dll
+E:\Dev\GitHub\poly-coder\SharpTopics\samples\SharpTopics.FsClient\obj\Debug\netcoreapp2.1\SharpTopics.FsClient.fsprojAssemblyReference.cache
+E:\Dev\GitHub\poly-coder\SharpTopics\samples\SharpTopics.FsClient\obj\Debug\netcoreapp2.1\SharpTopics.FsClient.AssemblyInfoInputs.cache
+E:\Dev\GitHub\poly-coder\SharpTopics\samples\SharpTopics.FsClient\obj\Debug\netcoreapp2.1\SharpTopics.FsClient.AssemblyInfo.fs
+E:\Dev\GitHub\poly-coder\SharpTopics\samples\SharpTopics.FsClient\bin\Debug\netcoreapp2.1\SharpTopics.FsClient.pdb
+E:\Dev\GitHub\poly-coder\SharpTopics\samples\SharpTopics.FsClient\bin\Debug\netcoreapp2.1\SharpTopics.FsInterfaces.dll
+E:\Dev\GitHub\poly-coder\SharpTopics\samples\SharpTopics.FsClient\bin\Debug\netcoreapp2.1\SharpTopics.FsInterfaces.pdb
+E:\Dev\GitHub\poly-coder\SharpTopics\samples\SharpTopics.FsClient\obj\Debug\netcoreapp2.1\SharpTopics.FsClient.fsproj.CopyComplete
+E:\Dev\GitHub\poly-coder\SharpTopics\samples\SharpTopics.FsClient\obj\Debug\netcoreapp2.1\SharpTopics.FsClient.dll
+E:\Dev\GitHub\poly-coder\SharpTopics\samples\SharpTopics.FsClient\obj\Debug\netcoreapp2.1\SharpTopics.FsClient.pdb
