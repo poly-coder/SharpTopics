@@ -2,8 +2,9 @@
 
 open System.Threading.Tasks
 open Orleans
+open SharpTopics.Core
 
 type IMessagePublisher =
     inherit IGrainWithStringKey
 
-    abstract PublishMessage: string -> Task<string>
+    abstract PublishMessages: Message seq -> Task<MessageMeta seq>

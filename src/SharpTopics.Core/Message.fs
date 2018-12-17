@@ -2,43 +2,48 @@ namespace SharpTopics.Core
 
 open SharpFunky
 
+type MessageMeta = Map<string, string>
+
 type Message = {
-    messageId: string
-    sequence: int64
-    timestamp: int64
-    contentType: string
-    data: byte[]
+    meta: MessageMeta
+    data: byte[] option
 }
 
-module Message =
+module MessageMeta =
+    let MessageIdKey = "MsgID"
+    let SequenceKey = "Sequence"
+    let TimestampKey = "Timestamp"
+    let ContentTypeKey = "Content-Type"
 
+    let empty: MessageMeta = Map.empty
+
+    [<RequireQualifiedAccess>]
+    module Lenses =
+        let stringKey (key: string): OptLens<_, string> = OptLens.mapKey key
+        let longKey key = OptLens.compose (stringKey key) OptLens.longParser
+        
+        let messageId = stringKey MessageIdKey
+        let contentType = stringKey ContentTypeKey
+        let sequence = longKey SequenceKey
+        let timestamp = longKey TimestampKey
+
+module Message =
     let empty = {
-        messageId = ""
-        sequence = -1L
-        timestamp = -1L
-        contentType = "application/octet-stream"
-        data = [||]
+        meta = MessageMeta.empty
+        data = None
     }
 
     [<RequireQualifiedAccess>]
     module Lenses =
-        let messageId = Lens.cons' (fun m -> m.messageId) (fun v m -> { m with messageId = v })
-        let sequence = Lens.cons' (fun m -> m.sequence) (fun v m -> { m with sequence = v })
-        let timestamp = Lens.cons' (fun m -> m.timestamp) (fun v m -> { m with timestamp = v })
-        let contentType = Lens.cons' (fun m -> m.contentType) (fun v m -> { m with contentType = v })
-        let data = Lens.cons' (fun m -> m.data) (fun v m -> { m with data = v })
+        let data = OptLens.cons' (fun m -> m.data) (fun v m -> { m with data = v })
+        let meta = Lens.cons' (fun m -> m.meta) (fun v m -> { m with meta = v })
 
-    let data = Lens.get Lenses.data
-    let setData = Lens.set Lenses.data
+        let metaKey key = OptLens.compose (OptLens.ofLens meta) (OptLens.mapKey key)
+        let longKey key = OptLens.compose (metaKey key) OptLens.longParser
 
-    let messageId = Lens.get Lenses.messageId
-    let setMessageId = Lens.set Lenses.messageId
+        let ofMeta lens = OptLens.compose (OptLens.ofLens meta) lens
+        let messageId = ofMeta MessageMeta.Lenses.messageId
+        let contentType = ofMeta MessageMeta.Lenses.contentType
+        let sequence = ofMeta MessageMeta.Lenses.sequence
+        let timestamp = ofMeta MessageMeta.Lenses.timestamp
 
-    let sequence = Lens.get Lenses.sequence
-    let setSequence = Lens.set Lenses.sequence
-
-    let timestamp = Lens.get Lenses.timestamp
-    let setTimestamp = Lens.set Lenses.timestamp
-
-    let contentType = Lens.get Lenses.contentType
-    let setContentType = Lens.set Lenses.contentType

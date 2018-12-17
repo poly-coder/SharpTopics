@@ -4,7 +4,7 @@ open Orleans
 open Orleans.Runtime.Configuration
 open Orleans.Hosting
 open System
-open FSharp.Control.Tasks
+open FSharp.Control.Tasks.V2
 open SharpTopics.FsInterfaces
 open SharpTopics.FsGrains
 

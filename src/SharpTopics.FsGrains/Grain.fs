@@ -2,7 +2,7 @@ namespace SharpTopics.FsGrains
 
 open Orleans
 open SharpTopics.FsInterfaces
-open FSharp.Control.Tasks
+open FSharp.Control.Tasks.V2
 
 type HelloGrain() =
     inherit Grain()

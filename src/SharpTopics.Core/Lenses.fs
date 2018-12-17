@@ -17,9 +17,6 @@ module Lens =
     let set (Lens(_, u)) : LensSetter<_, _> = konst >> u
     let updWith lens = upd lens |> flip
 
-    //let inline composeGetters g1 g2 = g1 >> g2
-    //let inline composeUpdaters u1 u2 = u2 >> u1
-
     let identity<'a> : Lens<'a, 'a> = cons' id konst
 
     let compose l1 l2 =
@@ -41,7 +38,7 @@ type OptLens<'a, 'b> = Lens<'a, 'b option>
 [<RequireQualifiedAccess>]
 module OptLens =
     let cons getter updater : OptLens<'a, 'b> = Lens.cons getter updater
-    let cons' getter updater : OptLens<'a, 'b> = Lens.cons' getter updater
+    let cons' getter setter : OptLens<'a, 'b> = Lens.cons' getter setter
 
     let getOpt (l: OptLens<'a, 'b>) : OptLensGetter<'a, 'b> = Lens.get l
     let upd (l: OptLens<'a, 'b>): OptLensUpdater<'a, 'b> = Lens.upd l
@@ -71,9 +68,18 @@ module OptLens =
         cons getter updater
 
     let mapKey key =
-        cons'
-            (Map.tryFind key)
-            (function Some v -> Map.add key v | None -> Map.remove key)
+        let getter m = Map.tryFind key m
+        let setter = function Some v -> Map.add key v | None -> Map.remove key
+        cons' getter setter
+
+    let parser defSource tryParse format: OptLens<'a, 'b> =
+        let tryFormat (value: 'b option) : 'a =
+            match value with
+            | Some v -> format v
+            | None -> defSource
+        cons' tryParse (fun value _ -> tryFormat value)
+
+    let longParser = parser "" Int64.tryParse Int64.toString
 
     module Infix =
         let inline (>=>) l1 l2 = compose l1 l2

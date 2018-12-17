@@ -5,21 +5,18 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="Grain.fs" />
-    <Compile Include="Topics.fs" />
+    <Compile Include="Storage.fs" />
+    <Compile Include="MessageStore.fs" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="2.2.0" />
-    <PackageReference Include="Microsoft.Orleans.Core.Abstractions" Version="2.2.0" />
-    <PackageReference Include="Microsoft.Orleans.OrleansCodeGenerator" Version="2.2.0" />
     <PackageReference Include="SharpFunky" Version="0.0.4" />
     <PackageReference Include="TaskBuilder.fs" Version="2.1.0" />
+    <PackageReference Include="WindowsAzure.Storage" Version="9.3.3" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\SharpTopics.Core\SharpTopics.Core.fsproj" />
-    <ProjectReference Include="..\SharpTopics.FsInterfaces\SharpTopics.FsInterfaces.fsproj" />
   </ItemGroup>
 
   <ItemGroup>
