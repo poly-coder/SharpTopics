@@ -1,5 +1,6 @@
 namespace SharpTopics.AzureStorage
 
+open SharpFunky
 open System.Threading.Tasks
 open Microsoft.WindowsAzure.Storage
 open Microsoft.WindowsAzure.Storage.Table
@@ -7,16 +8,20 @@ open FSharp.Control.Tasks.V2
 open SharpTopics.Core
 
 type AzureTableMessageStoreOptions = {
-    partitionKey: string
     statusRowKey: string
     messageRowKeyPrefix: string
+    metaPrefix: string
+    dataPrefix: string
+    maxDataChunkSize: int
 }
 
 module AzureTableMessageStoreOptions =
     let empty = {
-        partitionKey = "topic"
         statusRowKey = "A_STATUS"
-        messageRowKeyPrefix = "M_"
+        messageRowKeyPrefix = "MSG_"
+        metaPrefix = "META_"
+        dataPrefix = "DATA_"
+        maxDataChunkSize = 65536
     }
 
 type MessageStoreStatusEntity(pk, rk) =
@@ -34,12 +39,30 @@ type MessageStoreStatusEntity(pk, rk) =
         entity.NextSequence <- status.nextSequence
         entity
 
-module MessageEntity = // DynamicTableEntity
-
 type AzureTableMessageStore(table: CloudTable, options: AzureTableMessageStoreOptions) =
+    
+    let messageToEntity partition message =
+        let entity = DynamicTableEntity()
+        do entity.PartitionKey <- partition
+
+        match OptLens.getOpt Message.Lenses.sequence message with
+            | Some sequence -> entity.RowKey <- sprintf "%s%i" options.messageRowKeyPrefix sequence
+            | None -> ()
+
+        message.meta
+            |> Map.toSeq
+            |> Seq.filter (fun (key, _) ->
+                key <> MessageMeta.SequenceKey)
+            |> Seq.iter (fun (key, value) ->
+                entity.Properties.Add(
+                    sprintf "%s%s" options.metaPrefix key,
+                    EntityProperty(value)))
+
+        entity
+
     interface IMessageStore with
-        member this.fetchStatus() = task {
-            let operation = TableOperation.Retrieve<MessageStoreStatusEntity>(options.partitionKey, options.statusRowKey)
+        member this.fetchStatus partition = task {
+            let operation = TableOperation.Retrieve<MessageStoreStatusEntity>(partition, options.statusRowKey)
             let! statusResult = table |> execute operation
             if isNull statusResult.Result then
                 return MessageStoreStatus.empty
@@ -47,12 +70,14 @@ type AzureTableMessageStore(table: CloudTable, options: AzureTableMessageStoreOp
                 return (statusResult.Result :?> MessageStoreStatusEntity).toStatus()
         }
 
-        member this.storeMessagesAndStatus messages status = task {
+        member this.storeMessagesAndStatus partition messages status = task {
             let batch = TableBatchOperation()
-            let statusEntity = MessageStoreStatusEntity.ofStatus options.partitionKey options.statusRowKey status
+            let statusEntity = MessageStoreStatusEntity.ofStatus partition options.statusRowKey status
             do batch.InsertOrMerge(statusEntity)
             do messages
                 |> List.iter (fun message ->
-                    
-                )
+                    let entity = messageToEntity partition message
+                    do batch.Insert(entity))
+            let! _ = table |> executeBatch batch
+            return ()
         }
