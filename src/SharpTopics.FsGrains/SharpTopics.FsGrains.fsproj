@@ -5,7 +5,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="Grain.fs" />
     <Compile Include="Topics.fs" />
   </ItemGroup>
 

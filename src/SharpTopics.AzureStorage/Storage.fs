@@ -64,3 +64,6 @@ module Table =
         }
         loop null
 
+    let columnEqualsTo value column = TableQuery.GenerateFilterCondition(column, QueryComparisons.Equal, value)
+    let partitionEqualsTo partition = "PartitionKey" |> columnEqualsTo partition
+    let rowKeyEqualsTo partition = "RowKey" |> columnEqualsTo partition

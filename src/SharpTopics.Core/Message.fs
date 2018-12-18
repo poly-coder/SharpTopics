@@ -2,12 +2,37 @@ namespace SharpTopics.Core
 
 open SharpFunky
 
-type MessageMeta = Map<string, string>
+type MetaData =
+    | MetaNull
+    | MetaString of string
+    | MetaLong of int64
+    | MetaFloat of float
+    | MetaBinary of byte[]
+
+type MessageMeta = Map<string, MetaData>
 
 type Message = {
     meta: MessageMeta
     data: byte[] option
 }
+
+module MetaData =
+    let metaString =
+        OptLens.cons'
+            (function MetaString s -> Some s | _ -> None)
+            (fun v _ -> match v with Some s -> MetaString s | _ -> MetaNull)
+    let metaLong =
+        OptLens.cons'
+            (function MetaLong s -> Some s | _ -> None)
+            (fun v _ -> match v with Some s -> MetaLong s | _ -> MetaNull)
+    let metaFloat =
+        OptLens.cons'
+            (function MetaFloat s -> Some s | _ -> None)
+            (fun v _ -> match v with Some s -> MetaFloat s | _ -> MetaNull)
+    let metaBinary =
+        OptLens.cons'
+            (function MetaBinary s -> Some s | _ -> None)
+            (fun v _ -> match v with Some s -> MetaBinary s | _ -> MetaNull)
 
 module MessageMeta =
     let MessageIdKey = "MsgID"
@@ -16,16 +41,26 @@ module MessageMeta =
     let ContentTypeKey = "Content-Type"
 
     let empty: MessageMeta = Map.empty
+    let get key =
+        Map.tryFind key >> Option.defaultValue MetaNull
+    let add key = function
+        | MetaNull -> Map.remove key
+        | value -> Map.add key value
+    let remove key = Map.remove key
+    let mapKey key =
+        Lens.cons' (get key) (add key)
 
-    [<RequireQualifiedAccess>]
-    module Lenses =
-        let stringKey (key: string): OptLens<_, string> = OptLens.mapKey key
-        let longKey key = OptLens.compose (stringKey key) OptLens.longParser
-        
-        let messageId = stringKey MessageIdKey
-        let contentType = stringKey ContentTypeKey
-        let sequence = longKey SequenceKey
-        let timestamp = longKey TimestampKey
+    let metaDataKey (key: string): Lens<MessageMeta, MetaData> = mapKey key
+    let internal ofMetaKey lens key = OptLens.compose (OptLens.ofLens <| metaDataKey key) lens
+    let stringKey = ofMetaKey MetaData.metaString
+    let longKey = ofMetaKey MetaData.metaLong
+    let floatKey = ofMetaKey MetaData.metaFloat
+    let binaryKey = ofMetaKey MetaData.metaBinary
+
+    let messageId = stringKey MessageIdKey
+    let contentType = stringKey ContentTypeKey
+    let sequence = longKey SequenceKey
+    let timestamp = longKey TimestampKey
 
 module Message =
     let empty = {
@@ -33,17 +68,17 @@ module Message =
         data = None
     }
 
-    [<RequireQualifiedAccess>]
-    module Lenses =
-        let data = OptLens.cons' (fun m -> m.data) (fun v m -> { m with data = v })
-        let meta = Lens.cons' (fun m -> m.meta) (fun v m -> { m with meta = v })
+    let data = OptLens.cons' (fun m -> m.data) (fun v m -> { m with data = v })
+    let meta = Lens.cons' (fun m -> m.meta) (fun v m -> { m with meta = v })
 
-        let metaKey key = OptLens.compose (OptLens.ofLens meta) (OptLens.mapKey key)
-        let longKey key = OptLens.compose (metaKey key) OptLens.longParser
+    let metaDataKey (key: string) = OptLens.compose (OptLens.ofLens meta) (OptLens.ofLens <| MessageMeta.metaDataKey key)
+    let internal ofMetaKey lens key = OptLens.compose (metaDataKey key) lens
+    let stringKey = ofMetaKey MetaData.metaString
+    let longKey = ofMetaKey MetaData.metaLong
+    let floatKey = ofMetaKey MetaData.metaFloat
+    let binaryKey = ofMetaKey MetaData.metaBinary
 
-        let ofMeta lens = OptLens.compose (OptLens.ofLens meta) lens
-        let messageId = ofMeta MessageMeta.Lenses.messageId
-        let contentType = ofMeta MessageMeta.Lenses.contentType
-        let sequence = ofMeta MessageMeta.Lenses.sequence
-        let timestamp = ofMeta MessageMeta.Lenses.timestamp
-
+    let messageId = stringKey MessageMeta.MessageIdKey
+    let contentType = stringKey MessageMeta.ContentTypeKey
+    let sequence = longKey MessageMeta.SequenceKey
+    let timestamp = longKey MessageMeta.TimestampKey

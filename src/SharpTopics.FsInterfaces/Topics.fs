@@ -7,15 +7,15 @@ open SharpTopics.Core
 type IMessagePublisherSubscriber =
     inherit IGrainObserver
 
-    abstract MessagesPublished: unit -> Task<unit>
+    abstract MessagesPublished: empty: unit -> unit
 
 type IMessagePublisher =
     inherit IGrainWithStringKey
 
-    abstract PublishMessages: Message seq -> Task<MessageMeta seq>
+    abstract PublishMessages: messages: Message list -> Task<MessageMeta list>
 
-    abstract Subscribe: IMessagePublisherSubscriber -> Task<unit>
-    abstract Unsubscribe: IMessagePublisherSubscriber -> Task<unit>
+    abstract Subscribe: observer: IMessagePublisherSubscriber -> Task<unit>
+    abstract Unsubscribe: observer: IMessagePublisherSubscriber -> Task<unit>
 
 
 
@@ -39,6 +39,6 @@ type MessageListResult = {
 type IMessageStoreChunk =
     inherit IGrainWithIntegerCompoundKey
 
-    abstract GetChunkInfo: unit -> Task<ChunkInfo>
+    abstract GetChunkInfo: empty: unit -> Task<ChunkInfo>
 
-    abstract FromSequenceRange: fromSeq: int64 -> toSeq: int64 -> Task<MessageListResult>
+    abstract FromSequenceRange: fromSeq: int64 * toSeq: int64 -> Task<MessageListResult>

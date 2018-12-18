@@ -1,4 +1,5 @@
-﻿namespace SharpTopics.FsGrains
+﻿
+namespace SharpTopics.FsGrains
 
 open Orleans
 open System
@@ -9,12 +10,13 @@ open System.Threading.Tasks
 open SharpFunky
 open System.Collections.Generic
 
-type MessagePublisherGrain(store: IMessageStore) as this =
+type MessagePublisherGrain(store: IMessageStore) =
     inherit Grain()
 
     let partition = ref ""
     let status = ref MessageStoreStatus.empty
     let subs = ref None
+    let genId() = Guid.NewGuid().ToString("N")
 
     override this.OnActivateAsync() =
         task {
@@ -38,13 +40,14 @@ type MessagePublisherGrain(store: IMessageStore) as this =
                     |> Seq.map (fun message ->
                         let message' = 
                             message
-                            |> OptLens.setSome Message.Lenses.timestamp timestampNow
-                            |> OptLens.setSome Message.Lenses.sequence st.Value.nextSequence
+                            |> OptLens.setSome Message.timestamp timestampNow
+                            |> OptLens.setSome Message.sequence st.Value.nextSequence
+                            |> OptLens.upd Message.messageId (function Some id -> Some id | None -> Some <| genId())
                         st := { !st with nextSequence = st.Value.nextSequence + 1L }
                         message'
                     )
                     |> Seq.toList
-                let metas' = messages' |> Seq.map (Lens.get Message.Lenses.meta)
+                let metas' = messages' |> List.map (Lens.get Message.meta)
                 do! store.storeMessagesAndStatus !partition messages' st.Value
                 status := !st
                 return metas'
@@ -62,6 +65,11 @@ type MessagePublisherGrain(store: IMessageStore) as this =
                 subs.Unsubscribe subscriber
         }
 
+type IMessageStoreChunkRefresh =
+    inherit IGrainWithStringKey
+
+    abstract RefreshChunk: unit -> Task<unit>
+
 type MessageStoreChunkGrain(store: IMessageStore) =
     inherit Grain()
 
@@ -72,7 +80,22 @@ type MessageStoreChunkGrain(store: IMessageStore) =
     let publisher = ref None
     let loadedMessages = List()
 
-    member this.Refresh() =
+    override this.OnActivateAsync() =
+        task {
+            partition := this.GetPrimaryKeyString()
+            index := this.GetPrimaryKeyLong()
+            let minSequence = !index * chunkSize
+            let maxSequence = (!index + 1L) * chunkSize
+            info := {
+                minSequence = minSequence
+                maxSequence = maxSequence
+                nextSequence = minSequence
+                isComplete = false
+            }
+            do! this.RefreshChunkImpl()
+        } :> Task
+
+    member this.RefreshChunkImpl() =
         let factory = this.GrainFactory
         task {
             if info.Value.isComplete then return ()
@@ -92,7 +115,7 @@ type MessageStoreChunkGrain(store: IMessageStore) =
                     let pub = factory.GetGrain<IMessagePublisher>(!partition)
                     publisher := Some pub
                     do! pub.Subscribe this
-                    return! this.Refresh()
+                    return! this.RefreshChunkImpl()
                 | Some _ ->
                     return ()
             else
@@ -104,39 +127,35 @@ type MessageStoreChunkGrain(store: IMessageStore) =
                 return ()
         }
 
-    override this.OnActivateAsync() =
-        task {
-            partition := this.GetPrimaryKeyString()
-            index := this.GetPrimaryKeyLong()
-            let minSequence = !index * chunkSize
-            let maxSequence = (!index + 1L) * chunkSize
-            info := {
-                minSequence = minSequence
-                maxSequence = maxSequence
-                nextSequence = minSequence
-                isComplete = false
-            }
-            do! this.Refresh()
-        } :> Task
+    member this.GetChunkInfoImpl() = task {
+        return !info
+    }
+
+    member this.FromSequenceRangeImpl fromSeq toSeq = task {
+        let inRange msg =
+            match OptLens.getOpt Message.sequence msg with
+            | Some s -> fromSeq <= s && s < toSeq
+            | None -> false
+        let messages = loadedMessages |> Seq.filter inRange |> List.ofSeq
+        let result = {
+            messages = messages
+        }
+        return result
+    }
+
+    interface IMessageStoreChunkRefresh with
+        member this.RefreshChunk() =
+            this.RefreshChunkImpl()
 
     interface IMessageStoreChunk with
-        member this.GetChunkInfo() = task {
-            return !info
-        }
+        member this.GetChunkInfo() =
+            this.GetChunkInfoImpl()
 
-        member this.FromSequenceRange fromSeq toSeq = task {
-            let inRange msg =
-                match OptLens.getOpt Message.Lenses.sequence msg with
-                | Some s -> fromSeq <= s && s < toSeq
-                | None -> false
-            let messages = loadedMessages |> Seq.filter inRange |> List.ofSeq
-            let result = {
-                messages = messages
-            }
-            return result
-        }
+        member this.FromSequenceRange(fromSeq, toSeq) =
+            this.FromSequenceRangeImpl fromSeq toSeq
 
     interface IMessagePublisherSubscriber with
-        member this.MessagesPublished() = task {
-            return! this.Refresh()
-        }
+        member this.MessagesPublished() =
+            let self = this.GrainFactory.GetGrain<IMessageStoreChunkRefresh>(this.GetPrimaryKeyString())
+            // TODO: Do this work? It makes me uncomfortable the ignore!!!
+            self.RefreshChunk() |> ignore

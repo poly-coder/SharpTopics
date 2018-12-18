@@ -10,10 +10,21 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Include="appsettings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <Compile Include="Program.fs" />
   </ItemGroup>
 
+  <ItemGroup />
+
   <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Configuration" Version="2.2.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="2.2.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="2.2.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.CommandLine" Version="2.2.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="2.2.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="2.2.0" />
     <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="2.2.0" />
     <PackageReference Include="Microsoft.Orleans.OrleansCodeGenerator" Version="2.2.0" />
     <PackageReference Include="Microsoft.Orleans.Server" Version="2.2.0" />
@@ -22,6 +33,8 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\SharpTopics.AzureStorage\SharpTopics.AzureStorage.fsproj" />
+    <ProjectReference Include="..\SharpTopics.Core\SharpTopics.Core.fsproj" />
     <ProjectReference Include="..\SharpTopics.FsGrains\SharpTopics.FsGrains.fsproj" />
     <ProjectReference Include="..\SharpTopics.FsInterfaces\SharpTopics.FsInterfaces.fsproj" />
   </ItemGroup>
