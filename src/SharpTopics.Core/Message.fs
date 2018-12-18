@@ -38,7 +38,7 @@ module MessageMeta =
     let MessageIdKey = "MsgID"
     let SequenceKey = "Sequence"
     let TimestampKey = "Timestamp"
-    let ContentTypeKey = "Content-Type"
+    let ContentTypeKey = "ContentType"
 
     let empty: MessageMeta = Map.empty
     let get key =
