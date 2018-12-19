@@ -4,7 +4,9 @@ open System.Threading.Tasks
 open Orleans
 open SharpTopics.Core
 
-type IMessagePublisherSubscriber =
+// IMessagePublisher
+
+type IMessagePublisherObserver =
     inherit IGrainObserver
 
     abstract MessagesPublished: empty: unit -> unit
@@ -14,10 +16,10 @@ type IMessagePublisher =
 
     abstract PublishMessages: messages: Message list -> Task<MessageMeta list>
 
-    abstract Subscribe: observer: IMessagePublisherSubscriber -> Task<unit>
-    abstract Unsubscribe: observer: IMessagePublisherSubscriber -> Task<unit>
+    abstract Subscribe: observer: IMessagePublisherObserver -> Task<unit>
+    abstract Unsubscribe: observer: IMessagePublisherObserver -> Task<unit>
 
-
+// IMessageStoreChunk
 
 type ChunkInfo = {
     minSequence: int64
@@ -36,9 +38,20 @@ type MessageListResult = {
     messages: Message list
 }
 
+type IMessageStoreChunkObserver =
+    inherit IGrainObserver
+
+    abstract MessagesAvailable: empty: unit -> unit
+    abstract MessagesComplete: empty: unit -> unit
+
 type IMessageStoreChunk =
     inherit IGrainWithIntegerCompoundKey
 
     abstract GetChunkInfo: empty: unit -> Task<ChunkInfo>
 
     abstract FromSequenceRange: fromSeq: int64 * toSeq: int64 -> Task<MessageListResult>
+
+    abstract Subscribe: observer: IMessageStoreChunkObserver -> Task<unit>
+    abstract Unsubscribe: observer: IMessageStoreChunkObserver -> Task<unit>
+
+// IMessageReader

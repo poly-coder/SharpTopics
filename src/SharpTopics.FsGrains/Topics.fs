@@ -20,12 +20,12 @@ type MessagePublisherGrain(store: IMessageStore) =
 
     override this.OnActivateAsync() =
         task {
-            subs := Some <| ObserverSubscriptionManager<IMessagePublisherSubscriber>()
+            subs := Some <| ObserverSubscriptionManager<IMessagePublisherObserver>()
             partition := this.GetPrimaryKeyString()
             let! st = store.fetchStatus !partition
             status := st
         } :> Task
-    
+
     interface IMessagePublisher with
         member this.PublishMessages messages = task {
             if status.Value.isFrozen then
@@ -52,7 +52,7 @@ type MessagePublisherGrain(store: IMessageStore) =
                 status := !st
                 return metas'
         }
-        
+
         member this.Subscribe subscriber = task {
             let subs = Option.get !subs
             if subs.IsSubscribed subscriber |> not then
@@ -78,11 +78,13 @@ type MessageStoreChunkGrain(store: IMessageStore) =
     let index = ref -1L
     let info = ref <| ChunkInfo.empty()
     let publisher = ref None
+    let subs = ref None
     let loadedMessages = List()
 
     override this.OnActivateAsync() =
         task {
             partition := this.GetPrimaryKeyString()
+            subs := Some <| ObserverSubscriptionManager<IMessageStoreChunkObserver>()
             index := this.GetPrimaryKeyLong()
             let minSequence = !index * chunkSize
             let maxSequence = (!index + 1L) * chunkSize
@@ -143,6 +145,18 @@ type MessageStoreChunkGrain(store: IMessageStore) =
         return result
     }
 
+    member this.SubscribeImpl observer = task {
+        let subs = Option.get !subs
+        if subs.IsSubscribed observer |> not then
+            subs.Subscribe observer
+    }
+
+    member this.UnsubscribeImpl observer = task {
+        let subs = Option.get !subs
+        if subs.IsSubscribed observer then
+            subs.Unsubscribe observer
+    }
+
     interface IMessageStoreChunkRefresh with
         member this.RefreshChunk() =
             this.RefreshChunkImpl()
@@ -154,8 +168,15 @@ type MessageStoreChunkGrain(store: IMessageStore) =
         member this.FromSequenceRange(fromSeq, toSeq) =
             this.FromSequenceRangeImpl fromSeq toSeq
 
-    interface IMessagePublisherSubscriber with
+        member this.Subscribe observer =
+            this.SubscribeImpl observer
+
+        member this.Unsubscribe observer =
+            this.UnsubscribeImpl observer
+
+    interface IMessagePublisherObserver with
         member this.MessagesPublished() =
             let self = this.GrainFactory.GetGrain<IMessageStoreChunkRefresh>(this.GetPrimaryKeyString())
             // TODO: Do this work? It makes me uncomfortable the ignore!!!
-            self.RefreshChunk() |> ignore
+            self.RefreshChunk()
+            |> ignore

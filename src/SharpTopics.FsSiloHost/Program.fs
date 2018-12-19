@@ -20,6 +20,7 @@ type AzureMessageStoreConfig() =
 let createConfig argv =
     ConfigurationBuilder()
         .AddJsonFile("appsettings.json", optional = true, reloadOnChange = false)
+        .AddJsonFile("appsettings.local.json", optional = true, reloadOnChange = false)
         .AddEnvironmentVariables("TOPIC_SERVER_")
         .AddCommandLine(argv: string[])
         .Build()
