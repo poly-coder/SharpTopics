@@ -1,7 +1,13 @@
 ﻿namespace SharpTopics.FsInterfaces
 
-open System.Threading.Tasks
 open Orleans
+open System.Threading.Tasks
+open SharpTopics.Core
+
+type MessageListResult = {
+    messages: Message list
+    allMessagesHasBeenRead: bool
+}
 
 type IMessageReaderObserver =
     inherit IGrainObserver

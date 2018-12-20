@@ -54,8 +54,8 @@ type MessageReaderGrain(readerOptions: MessageReaderOptions) =
             let timer =
                 this.RegisterTimer(
                     (fun _ -> task { do! this.RefreshReaderImpl false } :> Task), null, 
-                    TimeSpan.FromSeconds <| float readerOptions.timerPeriod,
-                    TimeSpan.FromSeconds <| float readerOptions.timerPeriod)
+                    TimeSpan.FromSeconds <| readerOptions.timerPeriod,
+                    TimeSpan.FromSeconds <| readerOptions.timerPeriod)
             do state := { !state with timer = Some timer }
         | _ ->
             do ()
@@ -81,7 +81,7 @@ type MessageReaderGrain(readerOptions: MessageReaderOptions) =
 
             match state.Value.chunk with
             | None ->
-                let chunk = factory.GetGrain<IMessageChunk>(chunkIndex, state.Value.partition)
+                let chunk = factory.GetGrain<IMessageChunk>(chunkIndex, state.Value.partition, null)
                 do! chunk.Subscribe(this)
                 do state := { !state with chunk = Some(chunkIndex, chunk) }
             | _ -> do ()
@@ -117,12 +117,24 @@ type MessageReaderGrain(readerOptions: MessageReaderOptions) =
                     let quotaEnd = fromSeq + int64 state.Value.quota
                     let toSeq = min chunkEnd quotaEnd
                     let! result = chunk.FromSequenceRange(fromSeq, toSeq)
-                    do this.NotifySubscribers result
                     do state := { !state with nextSequence = toSeq }
-                    if result.isComplete then
-                        do! this.ReleaseChunk()
-
-                        do state := { !state with available = false }
+                    let! moreAvailable, allMessagesHasBeenRead = task {
+                        if result.chunkCouldReceiveMoreMessages then
+                            if result.requestHasMoreMessagesInChunk then
+                                return true, false
+                            else
+                                return true, true
+                        else
+                            // The chunk is done
+                            do! this.ReleaseChunk()
+                            return false, false
+                    }
+                    let listResult: MessageListResult = {
+                        messages = result.messages
+                        allMessagesHasBeenRead = allMessagesHasBeenRead // keep reading?
+                    }
+                    do this.NotifySubscribers listResult
+                    return! this.RefreshReaderImpl moreAvailable
 
                 | None -> do()
         }
@@ -174,13 +186,13 @@ type MessageReaderGrain(readerOptions: MessageReaderOptions) =
 
     interface IMessageChunkObserver with
         member this.MessagesAvailable() =
-            let primaryKey = this.GetPrimaryKeyString()
-            let self = this.GrainFactory.GetGrain<IMessageReaderRefresh>(primaryKey)
+            let partition = this.GetPrimaryKeyString()
+            let self = this.GrainFactory.GetGrain<IMessageReaderRefresh>(partition)
             // TODO: Do this work? It makes me uncomfortable the ignore!!!
             do self.RefreshReader true |> ignore
 
         member this.MessagesComplete() =
-            let primaryKey = this.GetPrimaryKeyString()
-            let self = this.GrainFactory.GetGrain<IMessageReaderRefresh>(primaryKey)
+            let partition = this.GetPrimaryKeyString()
+            let self = this.GrainFactory.GetGrain<IMessageReaderRefresh>(partition)
             // TODO: Do this work? It makes me uncomfortable the ignore!!!
             do self.RefreshReader false |> ignore

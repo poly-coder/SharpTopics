@@ -1,12 +1,13 @@
 ﻿namespace SharpTopics.FsInterfaces
 
-open System.Threading.Tasks
 open Orleans
+open System.Threading.Tasks
 open SharpTopics.Core
 
-type MessageListResult = {
+type MessageChunkResult = {
     messages: Message list
-    isComplete: bool
+    chunkCouldReceiveMoreMessages: bool
+    requestHasMoreMessagesInChunk: bool
 }
 
 type IMessageChunkObserver =
@@ -18,7 +19,7 @@ type IMessageChunkObserver =
 type IMessageChunk =
     inherit IGrainWithIntegerCompoundKey
 
-    abstract FromSequenceRange: fromSeq: int64 * toSeq: int64 -> Task<MessageListResult>
+    abstract FromSequenceRange: fromSeq: int64 * toSeq: int64 -> Task<MessageChunkResult>
 
     abstract Subscribe: observer: IMessageChunkObserver -> Task<unit>
     abstract Unsubscribe: observer: IMessageChunkObserver -> Task<unit>

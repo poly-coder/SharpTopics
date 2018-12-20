@@ -15,7 +15,7 @@
     <PackageReference Include="Microsoft.Orleans.Core.Abstractions" Version="2.2.0" />
     <PackageReference Include="Microsoft.Orleans.Core.Legacy" Version="2.2.0" />
     <PackageReference Include="Microsoft.Orleans.OrleansCodeGenerator" Version="2.2.0" />
-    <PackageReference Include="SharpFunky" Version="0.0.4" />
+    <PackageReference Include="SharpFunky" Version="0.0.5" />
     <PackageReference Include="TaskBuilder.fs" Version="2.1.0" />
   </ItemGroup>
 

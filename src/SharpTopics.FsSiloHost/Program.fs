@@ -13,10 +13,6 @@ open Microsoft.Extensions.Configuration
 open Microsoft.WindowsAzure.Storage
 open Orleans.ApplicationParts
 
-type AzureMessageStoreConfig() =
-    member val ConnectionString = "" with get, set
-    member val TableName = "" with get, set
-
 let createConfig argv =
     ConfigurationBuilder()
         .AddJsonFile("appsettings.json", optional = true, reloadOnChange = false)
@@ -34,31 +30,27 @@ let configureParts configuration (parts: IApplicationPartManager) =
 
 let configureLogging configuration (logging: ILoggingBuilder) =
     do logging
-        .AddConsole() 
+        .AddConsole()
     |> ignore
+
+let configSection<'a when 'a: (new: unit -> 'a)> sectionPath svc =
+    (svc: IServiceProvider)
+        .GetService<IConfigurationRoot>()
+        .GetSection(sectionPath)
+        .Get<'a>()
+    |> fun cnf ->
+        if obj.ReferenceEquals(cnf, null) 
+        then new 'a()
+        else cnf
 
 let configureServices configuration (services: IServiceCollection) =
     do services
 
         .AddSingleton<IConfigurationRoot>(configuration: IConfigurationRoot)
+        .AddSingleton<AzureMessageStoreConfig>(configSection "MessageStorage:AzureStorage")
+        .AddSingleton<MessageReaderOptions>(configSection "MessageReader")
 
-        .AddSingleton<AzureMessageStoreConfig>(fun svc ->
-            svc
-                .GetService<IConfigurationRoot>()
-                .GetSection("MessageStorage:AzureStorage")
-                .Get<AzureMessageStoreConfig>()
-            |> fun cnf -> if obj.ReferenceEquals(cnf, null) 
-                          then AzureMessageStoreConfig()
-                          else cnf
-        )
-
-        .AddSingleton<IMessageStore, AzureTableMessageStore>(fun svc ->
-            let cnf = svc.GetService<AzureMessageStoreConfig>()
-            let account = Storage.parseAccount cnf.ConnectionString
-            let client = account.CreateCloudTableClient()
-            let table = client.GetTableReference(cnf.TableName)
-            AzureTableMessageStore(table, AzureTableMessageStoreOptions.standard)
-        )
+        .AddSingleton<IMessageStore, AzureTableMessageStore>()
 
     |> ignore
 

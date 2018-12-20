@@ -14,10 +14,9 @@ type IMessageChunkRefresh =
 
     abstract RefreshChunk: unit -> Task<unit>
 
-type MessageReaderOptions = {
-    chunkSize: int64
-    timerPeriod: int
-}
+type MessageReaderOptions() =
+    member val chunkSize = 1000L with get, set
+    member val timerPeriod = 100.0 with get, set
 
 type internal MessageChunkState = {
     partition: string
@@ -39,23 +38,24 @@ type MessageChunkGrain(store: IMessageStore, readerOptions: MessageReaderOptions
         nextSequence = -1L
         publisher = None
     }
-    let isComplete() = !state |> fun st -> st.maxSequence = st.nextSequence
     let subs = ObserverSubscriptionManager<IMessageChunkObserver>()
     let loadedMessages = List()
-    let isCompleteMessages toSeq = 
-        List.tryLast
-        >> Option.bind (OptLens.getOpt Message.sequence)
-        >> Option.map (fun sequence -> sequence + 1L = toSeq)
-        >> Option.defaultValue false
+    let chunkHaveAllMessages() =
+        !state
+        |> fun st -> st.maxSequence = st.nextSequence
+    let chunkCouldReceiveMoreMessages() =
+        not(chunkHaveAllMessages()) &&
+        Option.isSome state.Value.publisher
 
     override this.OnActivateAsync() =
         task {
-            let index = this.GetPrimaryKeyLong()
+            let mutable partition = ""
+            let index = this.GetPrimaryKeyLong(&partition)
             let minSequence = index * readerOptions.chunkSize
             state := 
                 {
                     !state with
-                        partition = this.GetPrimaryKeyString()
+                        partition = partition
                         index = index
                         minSequence = minSequence
                         maxSequence = minSequence + readerOptions.chunkSize
@@ -64,33 +64,43 @@ type MessageChunkGrain(store: IMessageStore, readerOptions: MessageReaderOptions
             do! this.RefreshChunkImpl()
         } :> Task
 
-    member this.RefreshChunkImpl() =
+    member this.EnsurePublisher() =
         let factory = this.GrainFactory
         task {
-            if isComplete() then return ()
-            let! result = store.fetchMessagesAndStatus 
-                            state.Value.partition
-                            state.Value.nextSequence
-                            state.Value.maxSequence
-            
+            match state.Value.publisher with
+            | None ->
+                let pub = factory.GetGrain<IMessagePublisher>(state.Value.partition)
+                state := { !state with publisher = Some pub }
+                do! pub.Subscribe this
+                return! this.RefreshChunkImpl()
+            | Some _ ->
+                return ()
+        }
+
+    member this.ReleasePublisher() = task {
+        match state.Value.publisher with
+        | Some pub ->
+            do! pub.Unsubscribe this
+            state := { !state with publisher = None }
+        | None -> ()
+        return ()
+    }
+
+    member this.RefreshChunkImpl() =
+        task {
+            if chunkHaveAllMessages() then return ()
+            let! result =
+                store.fetchMessagesAndStatus 
+                    state.Value.partition
+                    state.Value.nextSequence
+                    state.Value.maxSequence
+
             state := { !state with nextSequence = result.nextSequence }
             loadedMessages.AddRange result.messages
-            if not <| isComplete() then
-                match state.Value.publisher with
-                | None ->
-                    let pub = factory.GetGrain<IMessagePublisher>(state.Value.partition)
-                    state := { !state with publisher = Some pub }
-                    do! pub.Subscribe this
-                    return! this.RefreshChunkImpl()
-                | Some _ ->
-                    return ()
+            if not <| chunkHaveAllMessages() then
+                do! this.EnsurePublisher()
             else
-                match state.Value.publisher with
-                | Some pub ->
-                    do! pub.Unsubscribe this
-                    state := { !state with publisher = None }
-                | None -> ()
-                return ()
+                do! this.ReleasePublisher()
         }
 
     member this.FromSequenceRangeImpl fromSeq toSeq = task {
@@ -98,11 +108,20 @@ type MessageChunkGrain(store: IMessageStore, readerOptions: MessageReaderOptions
             match OptLens.getOpt Message.sequence msg with
             | Some s -> fromSeq <= s && s < toSeq
             | None -> false
-        let messages = loadedMessages |> Seq.filter inRange |> List.ofSeq
-        let isComplete = isCompleteMessages toSeq messages
-        let result = {
+        let messages =
+            loadedMessages
+            |> Seq.filter inRange
+            |> List.ofSeq
+        let requestHasMoreMessagesInChunk =
+            messages
+            |> List.tryLast
+            |> Option.bind (OptLens.getOpt Message.sequence)
+            |> Option.map (fun s -> s + 1L < min toSeq state.Value.maxSequence)
+            |> Option.defaultValue true
+        let result: MessageChunkResult = {
+            chunkCouldReceiveMoreMessages = chunkCouldReceiveMoreMessages()
+            requestHasMoreMessagesInChunk = requestHasMoreMessagesInChunk 
             messages = messages
-            isComplete = isComplete
         }
         return result
     }
@@ -133,9 +152,9 @@ type MessageChunkGrain(store: IMessageStore, readerOptions: MessageReaderOptions
 
     interface IMessagePublisherObserver with
         member this.MessagesPublished() =
-            let primaryKey = this.GetPrimaryKeyLong()
-            let keyExtension = this.GetPrimaryKeyString()
-            let self = this.GrainFactory.GetGrain<IMessageChunkRefresh>(primaryKey, keyExtension)
+            let mutable partition = ""
+            let index = this.GetPrimaryKeyLong(&partition)
+            let self = this.GrainFactory.GetGrain<IMessageChunkRefresh>(index, partition, null)
             // TODO: Do this work? It makes me uncomfortable the ignore!!!
             self.RefreshChunk()
             |> ignore

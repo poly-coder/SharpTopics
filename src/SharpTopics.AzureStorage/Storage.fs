@@ -67,3 +67,5 @@ module Table =
     let columnEqualsTo value column = TableQuery.GenerateFilterCondition(column, QueryComparisons.Equal, value)
     let partitionEqualsTo partition = "PartitionKey" |> columnEqualsTo partition
     let rowKeyEqualsTo partition = "RowKey" |> columnEqualsTo partition
+    let rowKeyGreaterThanOrEqualTo value = TableQuery.GenerateFilterCondition("RowKey", QueryComparisons.GreaterThanOrEqual, value)
+    let rowKeyLessThan value = TableQuery.GenerateFilterCondition("RowKey", QueryComparisons.LessThan, value)

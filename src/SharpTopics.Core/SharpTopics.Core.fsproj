@@ -5,13 +5,12 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="Lenses.fs" />
     <Compile Include="Message.fs" />
     <Compile Include="MessageStore.fs" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="SharpFunky" Version="0.0.4" />
+    <PackageReference Include="SharpFunky" Version="0.0.5" />
     <PackageReference Include="TaskBuilder.fs" Version="2.1.0" />
   </ItemGroup>
 

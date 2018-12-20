@@ -8,24 +8,28 @@ open FSharp.Control.Tasks.V2
 open SharpTopics.Core
 open System
 
-type AzureTableMessageStoreOptions = {
-    statusRowKey: string
-    messageRowKeyPrefix: string
-    metaPrefix: string
-    dataPrefix: string
-    chunkSize: int
-}
+type AzureMessageStoreConfig() =
+    member val ConnectionString = "" with get, set
+    member val TableName = "" with get, set
+    member val StatusRowKey = "A_STATUS" with get, set
+    member val MessageRowKeyPrefix = "MSG_" with get, set
+    member val MetaPrefix = "META_" with get, set
+    member val DataPrefix = "DATA_" with get, set
+    member val DataChunkSize = 65536 with get, set
 
-module AzureTableMessageStoreOptions =
-    let standard = {
-        statusRowKey = "A_STATUS"
-        messageRowKeyPrefix = "MSG_"
-        metaPrefix = "META_"
-        dataPrefix = "DATA_"
-        chunkSize = 65536
-    }
+type AzureTableMessageStore(options: AzureMessageStoreConfig) =
 
-type AzureTableMessageStore(table: CloudTable, options: AzureTableMessageStoreOptions) =
+    let table =
+        let account = Storage.parseAccount options.ConnectionString
+        let client = account.CreateCloudTableClient()
+        client.GetTableReference(options.TableName)
+
+    let seqToRowKey = sprintf "%s%020i" options.MessageRowKeyPrefix
+    let rowKeyToSeq =
+        fun (s: string) -> s.Substring(options.MessageRowKeyPrefix.Length)
+        // >> fun s -> s.TrimStart('0')
+        >> Int64.parse
+        
 
     let metaDataToEntityProperty value =
         match value with
@@ -55,7 +59,8 @@ type AzureTableMessageStore(table: CloudTable, options: AzureTableMessageStoreOp
         do entity.PartitionKey <- partition
 
         match OptLens.getOpt Message.sequence message with
-            | Some sequence -> entity.RowKey <- sprintf "%s%i" options.messageRowKeyPrefix sequence
+            | Some sequence ->
+                entity.RowKey <- seqToRowKey sequence
             | None -> ()
 
         message.meta
@@ -64,21 +69,21 @@ type AzureTableMessageStore(table: CloudTable, options: AzureTableMessageStoreOp
                 key <> MessageMeta.SequenceKey)
             |> Seq.iter (fun (key, value) ->
                 entity.Properties.Add(
-                    sprintf "%s%s" options.metaPrefix key,
+                    sprintf "%s%s" options.MetaPrefix key,
                     metaDataToEntityProperty value))
 
         match message.data with
         | Some data when data.Length > 0 ->
-            let maxIndex = int(Math.Ceiling(float data.Length / float options.chunkSize)) - 1
+            let maxIndex = int(Math.Ceiling(float data.Length / float options.DataChunkSize)) - 1
             seq { 0 .. maxIndex }
             |> Seq.iter (fun index ->
-                let initIndex = index * options.chunkSize
-                let chunkSize = min options.chunkSize (data.Length - initIndex)
+                let initIndex = index * options.DataChunkSize
+                let chunkSize = min options.DataChunkSize (data.Length - initIndex)
                 // TODO: Optimize with ArrayPool
                 let bytes = Array.zeroCreate chunkSize // (fun i -> data.[i + initIndex])
                 Array.Copy(data, initIndex, bytes, 0, chunkSize)
                 entity.Properties.Add(
-                    sprintf "%s%i" options.dataPrefix index,
+                    sprintf "%s%i" options.DataPrefix index,
                     EntityProperty(bytes))
             )
         | _ ->
@@ -88,9 +93,8 @@ type AzureTableMessageStore(table: CloudTable, options: AzureTableMessageStoreOp
 
     let entityToMessage (entity: DynamicTableEntity) =
         let sequence =
-            if entity.RowKey.StartsWith options.messageRowKeyPrefix then
-                entity.RowKey.Substring(options.messageRowKeyPrefix.Length)
-                |> Int64.parse
+            if entity.RowKey.StartsWith options.MessageRowKeyPrefix then
+                rowKeyToSeq entity.RowKey
             else
                 invalidOp <| sprintf "Found a message with an invalid key: %s - %s" entity.PartitionKey entity.RowKey
 
@@ -98,8 +102,8 @@ type AzureTableMessageStore(table: CloudTable, options: AzureTableMessageStoreOp
             let dataProps =
                 entity.Properties
                 |> Seq.map (fun p -> p.Key, p.Value)
-                |> Seq.filter (fun (k, _) -> k.StartsWith(options.dataPrefix))
-                |> Seq.map (fun (k, v) -> (k.Substring(options.dataPrefix.Length) |> Int32.parse), v)
+                |> Seq.filter (fun (k, _) -> k.StartsWith(options.DataPrefix))
+                |> Seq.map (fun (k, v) -> (k.Substring(options.DataPrefix.Length) |> Int32.parse), v)
                 |> Seq.sortBy fst
                 |> Seq.map snd
                 |> Seq.map (fun p ->
@@ -125,8 +129,8 @@ type AzureTableMessageStore(table: CloudTable, options: AzureTableMessageStoreOp
         let meta =
             entity.Properties
             |> Seq.map (fun p -> p.Key, p.Value)
-            |> Seq.filter (fun (k, _) -> k.StartsWith(options.metaPrefix))
-            |> Seq.map (fun (k, v) -> k.Substring(options.dataPrefix.Length), entityPropertyToMetaData v)
+            |> Seq.filter (fun (k, _) -> k.StartsWith(options.MetaPrefix))
+            |> Seq.map (fun (k, v) -> k.Substring(options.DataPrefix.Length), entityPropertyToMetaData v)
             |> Seq.toList
             
 
@@ -139,7 +143,7 @@ type AzureTableMessageStore(table: CloudTable, options: AzureTableMessageStoreOp
                     m |> OptLens.setSome (Message.metaDataKey k) v)
 
     let statusToEntity partition status =
-        let entity = DynamicTableEntity(partition, options.statusRowKey)
+        let entity = DynamicTableEntity(partition, options.StatusRowKey)
         do entity.ETag <- "*"
         do entity.Properties.Add("IsFrozen", EntityProperty(Nullable status.isFrozen))
         do entity.Properties.Add("NextSequence", EntityProperty(Nullable status.nextSequence))
@@ -161,7 +165,7 @@ type AzureTableMessageStore(table: CloudTable, options: AzureTableMessageStoreOp
 
     interface IMessageStore with
         member this.fetchStatus partition = task {
-            let operation = TableOperation.Retrieve(partition, options.statusRowKey)
+            let operation = TableOperation.Retrieve(partition, options.StatusRowKey)
             let! statusResult = table |> execute operation
             if isNull statusResult.Result then
                 return MessageStoreStatus.empty
@@ -186,21 +190,33 @@ type AzureTableMessageStore(table: CloudTable, options: AzureTableMessageStoreOp
                 TableQuery.CombineFilters(
                     partitionEqualsTo partition,
                     TableOperators.And,
-                    rowKeyEqualsTo options.statusRowKey
+                    rowKeyEqualsTo options.StatusRowKey
                 )
             let query = TableQuery().Where(where).Take(Nullable 1)
             let! queryResult = table |> executeQueryFull query
             if queryResult.Count = 1 then
-                let nextSequence = queryResult.[0] |> entityToStatus |> fun s -> s.nextSequence
+                let nextSequence =
+                    queryResult.[0]
+                    |> entityToStatus
+                    |> fun s -> s.nextSequence
                 let where =
                     TableQuery.CombineFilters(
                         partitionEqualsTo partition,
                         TableOperators.And,
-                        rowKeyEqualsTo (sprintf "%s%i" options.messageRowKeyPrefix from)
+                        TableQuery.CombineFilters(
+                            rowKeyGreaterThanOrEqualTo (seqToRowKey from),
+                            TableOperators.And,
+                            rowKeyLessThan (seqToRowKey toExclusive)
+                        )
                     )
                 let query = TableQuery().Where(where)
-                let! queryResult = table |> executeQueryFull query
-                let messages = queryResult |> Seq.map entityToMessage |> Seq.toList
+                let! queryResult =
+                    table
+                    |> executeQueryFull query
+                let messages =
+                    queryResult
+                    |> Seq.map entityToMessage
+                    |> Seq.toList
                 return {
                     messages = messages
                     nextSequence = nextSequence
