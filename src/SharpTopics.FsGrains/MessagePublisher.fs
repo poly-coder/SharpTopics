@@ -7,59 +7,68 @@ open SharpTopics.FsInterfaces
 open FSharp.Control.Tasks.V2
 open System.Threading.Tasks
 open SharpFunky
-open System.Collections.Generic
+
+type internal MessagePublisherState = {
+    partition: string
+    status: MessageStoreStatus
+}
 
 type MessagePublisherGrain(store: IMessageStore) =
     inherit Grain()
 
-    let partition = ref ""
-    let status = ref MessageStoreStatus.empty
-    let subs = ref None
+    let mutable state = {
+        partition = ""
+        status = MessageStoreStatus.empty
+    }
+    let subs = ObserverSubscriptionManager<IMessagePublisherObserver>()
     let genId() = Guid.NewGuid().ToString("N")
 
     override this.OnActivateAsync() =
         task {
-            subs := Some <| ObserverSubscriptionManager<IMessagePublisherObserver>()
-            partition := this.GetPrimaryKeyString()
-            let! st = store.fetchStatus !partition
-            status := st
+            let partition = this.GetPrimaryKeyString()
+            let! status = store.fetchStatus partition
+            do state <-
+                {
+                    state with
+                        partition = partition
+                        status = status
+                }
         } :> Task
 
     interface IMessagePublisher with
         member this.PublishMessages messages = task {
-            if status.Value.isFrozen then
+            if state.status.isFrozen then
                 return invalidOp "Topic is frozen. It cannot public any more messages for now"
             elif messages |> Seq.isEmpty then
                 return invalidOp "You must publish at least one message" // ???
             else
                 let timestampNow = DateTime.UtcNow.Ticks
-                let st = ref !status
+                let mutable nextSequence = state.status.nextSequence
                 let messages' =
                     messages
                     |> Seq.map (fun message ->
                         let message' = 
                             message
                             |> OptLens.setSome Message.timestamp timestampNow
-                            |> OptLens.setSome Message.sequence st.Value.nextSequence
+                            |> OptLens.setSome Message.sequence nextSequence
                             |> OptLens.upd Message.messageId (function Some id -> Some id | None -> Some <| genId())
-                        st := { !st with nextSequence = st.Value.nextSequence + 1L }
+                        nextSequence <- nextSequence + 1L
                         message'
                     )
                     |> Seq.toList
                 let metas' = messages' |> List.map (Lens.get Message.meta)
-                do! store.storeMessagesAndStatus !partition messages' st.Value
-                status := !st
+                do state <- { state with status = { state.status with nextSequence = nextSequence } }
+                do! store.storeMessagesAndStatus state.partition messages' state.status
+                do subs.Notify(fun obs -> obs.MessagesPublished())
                 return metas'
         }
 
         member this.Subscribe subscriber = task {
-            let subs = Option.get !subs
             if subs.IsSubscribed subscriber |> not then
                 subs.Subscribe subscriber
         }
 
         member this.Unsubscribe subscriber = task {
-            let subs = Option.get !subs
             if subs.IsSubscribed subscriber then
                 subs.Unsubscribe subscriber
         }

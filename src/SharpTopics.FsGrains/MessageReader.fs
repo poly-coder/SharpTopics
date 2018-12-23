@@ -27,7 +27,7 @@ type internal MessageReaderState = {
 type MessageReaderGrain(readerOptions: MessageReaderOptions) =
     inherit Grain()
 
-    let state = ref {
+    let mutable state = {
         partition = ""
         quota = 0
         nextSequence = 0L
@@ -45,64 +45,66 @@ type MessageReaderGrain(readerOptions: MessageReaderOptions) =
 
     override this.OnActivateAsync() =
         task {
-            do state := { !state with partition = this.GetPrimaryKeyString() }
+            do state <- { state with partition = this.GetPrimaryKeyString() }
         } :> Task
 
     member this.EnsureTimer() =
-        match state.Value.timer with
+        match state.timer with
         | None ->
             let timer =
                 this.RegisterTimer(
                     (fun _ -> task { do! this.RefreshReaderImpl false } :> Task), null, 
                     TimeSpan.FromSeconds <| readerOptions.timerPeriod,
                     TimeSpan.FromSeconds <| readerOptions.timerPeriod)
-            do state := { !state with timer = Some timer }
+            do state <- { state with timer = Some timer }
         | _ ->
             do ()
 
     member this.ReleaseTimer() =
-        match state.Value.timer with
+        match state.timer with
         | Some timer ->
             do timer.Dispose()
-            do state := { !state with timer = None }
+            do state <- { state with timer = None }
         | None ->
             do ()
 
     member this.EnsureChunk() =
         let factory = this.GrainFactory
         task {
-            let chunkIndex = state.Value.nextSequence / readerOptions.chunkSize
+            let chunkIndex = state.nextSequence / readerOptions.chunkSize
         
-            match state.Value.chunk with
+            match state.chunk with
             | Some (currentIndex, _) ->
                 if currentIndex <> chunkIndex then
                     do! this.ReleaseChunk()
             | _ -> do ()
 
-            match state.Value.chunk with
+            match state.chunk with
             | None ->
-                let chunk = factory.GetGrain<IMessageChunk>(chunkIndex, state.Value.partition, null)
+                let chunk = factory.GetGrain<IMessageChunk>(chunkIndex, state.partition, null)
                 do! chunk.Subscribe(this)
-                do state := { !state with chunk = Some(chunkIndex, chunk) }
+                do state <- { state with chunk = Some(chunkIndex, chunk) }
             | _ -> do ()
         }
 
     member this.ReleaseChunk() = task {
-        match state.Value.chunk with
+        match state.chunk with
         | Some (_, chunk) ->
             do! chunk.Unsubscribe(this)
-            do state := { !state with chunk = None }
+            do state <- { state with chunk = None }
         | None ->
             do ()
     }
 
+    // Try to remove timer
+
     member this.RefreshReaderImpl available: Task<unit> =
         task {
-            do state := { !state with available = state.Value.available || available }
+            do state <- { state with available = state.available || available }
             let shouldTry =
                 if subs.Count = 0 then false
-                elif state.Value.quota <= 0 then false
-                elif not state.Value.available && not available then false
+                elif state.quota <= 0 then false
+                elif not state.available && not available then false
                 else true
 
             if not shouldTry then
@@ -110,31 +112,29 @@ type MessageReaderGrain(readerOptions: MessageReaderOptions) =
                 do! this.ReleaseChunk()
             else
                 do! this.EnsureChunk()
-                match state.Value.chunk with
+                match state.chunk with
                 | Some (chunkIndex, chunk) ->
-                    let fromSeq = state.Value.nextSequence
+                    let fromSeq = state.nextSequence
                     let chunkEnd = (chunkIndex + 1L) * readerOptions.chunkSize
-                    let quotaEnd = fromSeq + int64 state.Value.quota
+                    let quotaEnd = fromSeq + int64 state.quota
                     let toSeq = min chunkEnd quotaEnd
                     let! result = chunk.FromSequenceRange(fromSeq, toSeq)
-                    do state := { !state with nextSequence = toSeq }
-                    let! moreAvailable, allMessagesHasBeenRead = task {
-                        if result.chunkCouldReceiveMoreMessages then
-                            if result.requestHasMoreMessagesInChunk then
-                                return true, false
-                            else
-                                return true, true
-                        else
-                            // The chunk is done
-                            do! this.ReleaseChunk()
-                            return false, false
-                    }
+                    let nextSequence =
+                        result.messages
+                        |> List.tryLast
+                        |> Option.bind (OptLens.getOpt Message.sequence)
+                        |> Option.defaultValue state.nextSequence
+                    do state <- { state with nextSequence = nextSequence }
+                    do state <- { state with available = false }
+                    if not result.chunkCouldReceiveMoreMessages then
+                        do! this.ReleaseChunk()
+                    let allMessagesHasBeenRead = not result.requestHasMoreMessagesInChunk
                     let listResult: MessageListResult = {
                         messages = result.messages
                         allMessagesHasBeenRead = allMessagesHasBeenRead // keep reading?
                     }
-                    do this.NotifySubscribers listResult
-                    return! this.RefreshReaderImpl moreAvailable
+                    do subs.Notify(fun obs -> obs.AcceptMessages listResult)
+                    return! this.RefreshReaderImpl false
 
                 | None -> do()
         }
@@ -142,14 +142,14 @@ type MessageReaderGrain(readerOptions: MessageReaderOptions) =
     member this.StartFromSequenceImpl sequence = task {
         if sequence < 0L then
             return raise <| invalidArg "sequence" "cannot be negative"
-        do state := { !state with nextSequence = sequence }
+        do state <- { state with nextSequence = sequence }
         return! this.RefreshReaderImpl false
     }
 
     member this.IssueQuotaImpl count = task {
         if count < 0 then
             return raise <| invalidArg "count" "cannot be negative"
-        do state := { !state with quota = state.Value.quota + count }
+        do state <- { state with quota = state.quota + count }
         return! this.RefreshReaderImpl false
     }
 
@@ -163,9 +163,6 @@ type MessageReaderGrain(readerOptions: MessageReaderOptions) =
         if subs.IsSubscribed observer then
             do subs.Unsubscribe observer
     }
-
-    member this.NotifySubscribers result =
-        subs.Notify(fun obs -> obs.AcceptMessages result)
 
     interface IMessageReaderRefresh with
         member this.RefreshReader available =

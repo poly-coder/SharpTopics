@@ -118,12 +118,11 @@ type AzureTableMessageStore(options: AzureMessageStoreConfig) =
                     dataProps
                     |> List.sumBy (fun b -> b.Length)
                 let bytes = Array.zeroCreate dataLength
-                let index = ref 0
+                let mutable index = 0
                 dataProps
                     |> List.iter (fun b ->
-                        Array.Copy(b, 0, bytes, !index, b.Length)
-                        index := !index + b.Length
-                    )
+                        Array.Copy(b, 0, bytes, index, b.Length)
+                        index <- index + b.Length)
                 Some bytes
         
         let meta =

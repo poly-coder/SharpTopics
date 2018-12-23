@@ -11,6 +11,15 @@ open SharpFunky
 open System.Diagnostics
 open System.Threading
 open System.Text.RegularExpressions
+open System.Linq
+open System.Threading.Tasks
+open Orleans.Runtime
+
+module Seq =
+    let join separator source =
+        ("", source) 
+        ||> Seq.fold (fun acc v ->
+            sprintf "%s%s%s" acc (if acc <> "" then separator else "") v)
 
 let buildClient() =
     let builder = new ClientBuilder()
@@ -32,6 +41,26 @@ let makeMsg text =
         // |> OptLens.setSome Message.messageId id
         |> OptLens.setSome Message.contentType "text/plain"
         |> OptLens.setSome Message.data (String.toUtf8 text)
+
+let metaToString = function
+    | MetaNull -> "<null>"
+    | MetaString s -> sprintf "'%s'" s
+    | MetaLong l -> sprintf "%i" l
+    | MetaFloat l -> sprintf "%f" l
+    | MetaBinary l -> sprintf "base64:%s" (String.toBase64 l)
+
+let msgToString (msg: Message) =
+    let headers =
+        msg.meta
+        |> Map.toSeq
+        |> Seq.sortBy fst
+        |> Seq.map (fun (k, v) -> sprintf "%s=%s" k (metaToString v))
+        |> Seq.join "; "
+    let content =
+        msg.data
+        |> Option.map String.fromUtf8
+        |> Option.defaultValue "<<empty>>"
+    sprintf "%s -- %s" headers content
 
 let worker loops count size (client: IClusterClient) = task {
     let publisher = client.GetGrain<IMessagePublisher> "12345"
@@ -86,6 +115,9 @@ let fromGroupInt32 = fromGroup Int32.tryParse
 
 let (|ExitCommand|_|) line =
     if Regex.IsMatch(line, @"^exit\s*$", RegexOptions.IgnoreCase) then Some() else None
+
+let (|HelpCommand|_|) line =
+    if Regex.IsMatch(line, @"^help$", RegexOptions.IgnoreCase) then Some() else None
 
 let (|SendTextCommand|_|) line =
     let m = Regex.Match(line, @"^send\s+(?<p>[A-Z0-9]{3,63})\s+((?<c>[\d]+)\s*\*\s*)?(?<m>.*)\s*$", RegexOptions.IgnoreCase)
@@ -163,10 +195,17 @@ let replTest() =
         | null 
         | ExitCommand ->
             closeClient()
-            return ()
+            return raise <| OperationCanceledException()
+
+        | HelpCommand ->
+            do printfn "???> exit"
+            do printfn "???> help"
+            do printfn "???> send <topic> [<count> *] <content>"
+            do printfn "???> chunk <topic> <index> <from-sequence> <to-sequence>"
+            do printfn "???> read <topic> <count>"
 
         | SendTextCommand (topicName, count, text) ->
-            do printf "    Sending %i messages to %s ... " count topicName
+            printf "    Sending %i messages to %s ... " count topicName
             do! runCommand
                     (fun () -> task {
                         let publisher = client.GetGrain<IMessagePublisher> topicName
@@ -181,25 +220,43 @@ let replTest() =
                     (fun (publisher, messages) -> publisher.PublishMessages messages)
 
         | ChunkTextCommand (topicName, index, from, to') ->
-            do printf "    Reading chunk %i of %s from %i to %i ... " index topicName from to'
+            printf "    Reading chunk %i of %s from %i to %i ... " index topicName from to'
             do! runCommand
                     (fun () -> task {
                         let chunk = client.GetGrain<IMessageChunk>(int64 index, topicName, null)
                         return chunk
                     })
-                    (fun chunk -> chunk.FromSequenceRange(int64 from, int64 to'))
+                    (fun chunk -> task {
+                        let! results = chunk.FromSequenceRange(int64 from, int64 to')
+                        let msgs = results.messages |> List.map msgToString
+                        return msgs, results.chunkCouldReceiveMoreMessages, results.requestHasMoreMessagesInChunk
+                    })
 
         | ReadTextCommand (topicName, count) ->
-            do printf "    /// Reading %i messages from %s ... " count topicName
-            
-            //let rec readLoop count = task {
-            //    if count = 0 then
-            //}
-            //return! readLoop count
+            printfn "    Reading %i messages from %s ... " count topicName
+            let countLeft = ref count
+            let doneSource = TaskCompletionSource()
+            let observerImpl =
+                { 
+                    new IMessageReaderObserver with
+                        member __.AcceptMessages messages =
+                            let msgs = messages.messages |> List.map msgToString
+                            printfn "%A" msgs
+                            printfn "allMessagesHasBeenRead = %b" messages.allMessagesHasBeenRead
+                            countLeft := !countLeft - (List.length msgs)
+                            if !countLeft <= 0 then doneSource.SetResult ()
+                }
+            let! observer = client.CreateObjectReference(observerImpl)
+            let reader = client.GetGrain<IMessageReader>(topicName)
+            do! reader.Subscribe(observer)
+            do! reader.IssueQuota(count)
+            do! doneSource.Task
+            printfn "DONE reading messages"
 
         | _ ->
             do printfn "Unknown command"
-        
+
+        do printfn ""
         return! replLoop client
     }
 

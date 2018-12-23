@@ -30,7 +30,7 @@ type internal MessageChunkState = {
 type MessageChunkGrain(store: IMessageStore, readerOptions: MessageReaderOptions) =
     inherit Grain()
 
-    let state = ref {
+    let mutable state = {
         partition = ""
         index = -1L
         minSequence = -1L
@@ -41,20 +41,19 @@ type MessageChunkGrain(store: IMessageStore, readerOptions: MessageReaderOptions
     let subs = ObserverSubscriptionManager<IMessageChunkObserver>()
     let loadedMessages = List()
     let chunkHaveAllMessages() =
-        !state
-        |> fun st -> st.maxSequence = st.nextSequence
+        state.maxSequence = state.nextSequence
     let chunkCouldReceiveMoreMessages() =
         not(chunkHaveAllMessages()) &&
-        Option.isSome state.Value.publisher
+        Option.isSome state.publisher
 
     override this.OnActivateAsync() =
         task {
             let mutable partition = ""
             let index = this.GetPrimaryKeyLong(&partition)
             let minSequence = index * readerOptions.chunkSize
-            state := 
+            state <-
                 {
-                    !state with
+                    state with
                         partition = partition
                         index = index
                         minSequence = minSequence
@@ -67,10 +66,10 @@ type MessageChunkGrain(store: IMessageStore, readerOptions: MessageReaderOptions
     member this.EnsurePublisher() =
         let factory = this.GrainFactory
         task {
-            match state.Value.publisher with
+            match state.publisher with
             | None ->
-                let pub = factory.GetGrain<IMessagePublisher>(state.Value.partition)
-                state := { !state with publisher = Some pub }
+                let pub = factory.GetGrain<IMessagePublisher>(state.partition)
+                state <- { state with publisher = Some pub }
                 do! pub.Subscribe this
                 return! this.RefreshChunkImpl()
             | Some _ ->
@@ -78,10 +77,10 @@ type MessageChunkGrain(store: IMessageStore, readerOptions: MessageReaderOptions
         }
 
     member this.ReleasePublisher() = task {
-        match state.Value.publisher with
+        match state.publisher with
         | Some pub ->
             do! pub.Unsubscribe this
-            state := { !state with publisher = None }
+            state <- { state with publisher = None }
         | None -> ()
         return ()
     }
@@ -91,14 +90,16 @@ type MessageChunkGrain(store: IMessageStore, readerOptions: MessageReaderOptions
             if chunkHaveAllMessages() then return ()
             let! result =
                 store.fetchMessagesAndStatus 
-                    state.Value.partition
-                    state.Value.nextSequence
-                    state.Value.maxSequence
+                    state.partition
+                    state.nextSequence
+                    state.maxSequence
 
-            state := { !state with nextSequence = result.nextSequence }
-            loadedMessages.AddRange result.messages
+            do state <- { state with nextSequence = result.nextSequence }
+            do loadedMessages.AddRange result.messages
+            do subs.Notify(fun obs -> obs.MessagesAvailable())
             if not <| chunkHaveAllMessages() then
                 do! this.EnsurePublisher()
+                do subs.Notify(fun obs -> obs.MessagesComplete())
             else
                 do! this.ReleasePublisher()
         }
@@ -116,7 +117,7 @@ type MessageChunkGrain(store: IMessageStore, readerOptions: MessageReaderOptions
             messages
             |> List.tryLast
             |> Option.bind (OptLens.getOpt Message.sequence)
-            |> Option.map (fun s -> s + 1L < min toSeq state.Value.maxSequence)
+            |> Option.map (fun s -> s + 1L < min toSeq state.maxSequence)
             |> Option.defaultValue true
         let result: MessageChunkResult = {
             chunkCouldReceiveMoreMessages = chunkCouldReceiveMoreMessages()
