@@ -11,66 +11,38 @@ open System.Collections.Generic
 open System.Threading
 
 type IMessageReaderRefresh =
-    inherit IGrainWithStringKey
+    inherit IGrainWithGuidKey
 
     abstract RefreshReader: available: bool -> Task<unit>
 
 type internal MessageReaderState = {
-    partition: string
-    quota: int
+    partition: string option
+    quota: int64
     nextSequence: int64
-    timer: IDisposable option
     chunk: (int64 * IMessageChunk) option
-    available: bool
 }
 
 type MessageReaderGrain(readerOptions: MessageReaderOptions) =
     inherit Grain()
 
     let mutable state = {
-        partition = ""
-        quota = 0
+        partition = None
+        quota = 0L
         nextSequence = 0L
-        timer = None
         chunk = None
-        available = true
     }
     let subs = ObserverSubscriptionManager<IMessageReaderObserver>()
 
-    member this.BaseRegisterTimer asyncCallback dueTime period =
-        this.RegisterTimer(
-            Func<_, _> (fun _ -> asyncCallback()), null, 
-            TimeSpan.FromSeconds dueTime, 
-            TimeSpan.FromSeconds period)
-
-    override this.OnActivateAsync() =
-        task {
-            do state <- { state with partition = this.GetPrimaryKeyString() }
-        } :> Task
-
-    member this.EnsureTimer() =
-        match state.timer with
-        | None ->
-            let timer =
-                this.RegisterTimer(
-                    (fun _ -> task { do! this.RefreshReaderImpl false } :> Task), null, 
-                    TimeSpan.FromSeconds <| readerOptions.timerPeriod,
-                    TimeSpan.FromSeconds <| readerOptions.timerPeriod)
-            do state <- { state with timer = Some timer }
-        | _ ->
-            do ()
-
-    member this.ReleaseTimer() =
-        match state.timer with
-        | Some timer ->
-            do timer.Dispose()
-            do state <- { state with timer = None }
-        | None ->
-            do ()
+    member this.FromInitialized() = task {
+        match state.partition with
+        | Some partition -> return partition
+        | None -> return raise <| invalidOp "Message reader must be initialized before any other operation is used"
+    }
 
     member this.EnsureChunk() =
         let factory = this.GrainFactory
         task {
+            let! partition = this.FromInitialized()
             let chunkIndex = state.nextSequence / readerOptions.chunkSize
         
             match state.chunk with
@@ -81,7 +53,7 @@ type MessageReaderGrain(readerOptions: MessageReaderOptions) =
 
             match state.chunk with
             | None ->
-                let chunk = factory.GetGrain<IMessageChunk>(chunkIndex, state.partition, null)
+                let chunk = factory.GetGrain<IMessageChunk>(chunkIndex, partition, null)
                 do! chunk.Subscribe(this)
                 do state <- { state with chunk = Some(chunkIndex, chunk) }
             | _ -> do ()
@@ -98,17 +70,14 @@ type MessageReaderGrain(readerOptions: MessageReaderOptions) =
 
     // Try to remove timer
 
-    member this.RefreshReaderImpl available: Task<unit> =
+    member this.RefreshReaderImpl (): Task<unit> =
         task {
-            do state <- { state with available = state.available || available }
             let shouldTry =
                 if subs.Count = 0 then false
-                elif state.quota <= 0 then false
-                elif not state.available && not available then false
+                elif state.quota <= 0L then false
                 else true
 
             if not shouldTry then
-                do this.ReleaseTimer()
                 do! this.ReleaseChunk()
             else
                 do! this.EnsureChunk()
@@ -123,40 +92,58 @@ type MessageReaderGrain(readerOptions: MessageReaderOptions) =
                         result.messages
                         |> List.tryLast
                         |> Option.bind (OptLens.getOpt Message.sequence)
+                        |> Option.map ((+) 1L)
                         |> Option.defaultValue state.nextSequence
+                    do state <- { state with quota = state.quota - (nextSequence - state.nextSequence) }
                     do state <- { state with nextSequence = nextSequence }
-                    do state <- { state with available = false }
                     if not result.chunkCouldReceiveMoreMessages then
                         do! this.ReleaseChunk()
-                    let allMessagesHasBeenRead = not result.requestHasMoreMessagesInChunk
+                    let endOfCurrentTopic =
+                        // If chunk is still open and could not read up to toSeq
+                        result.chunkCouldReceiveMoreMessages &&
+                        nextSequence < chunkEnd
                     let listResult: MessageListResult = {
                         messages = result.messages
-                        allMessagesHasBeenRead = allMessagesHasBeenRead // keep reading?
+                        endOfCurrentTopic = endOfCurrentTopic // keep reading?
                     }
                     do subs.Notify(fun obs -> obs.AcceptMessages listResult)
-                    return! this.RefreshReaderImpl false
+                    if nextSequence < toSeq then
+                        return()
+                    else
+                        return! this.RefreshReaderImpl ()
 
                 | None -> do()
         }
 
-    member this.StartFromSequenceImpl sequence = task {
-        if sequence < 0L then
-            return raise <| invalidArg "sequence" "cannot be negative"
+    member this.InitializeImpl (init: MessageReaderInit) = task {
+        let sequence = 
+            match init.readFrom with
+            | ReadFromStart -> 0L
+            | ReadFromSequence sequence ->
+                if sequence < 0L then raise <| invalidArg "sequence" "cannot be negative"
+                sequence
         do state <- { state with nextSequence = sequence }
-        return! this.RefreshReaderImpl false
+
+        if init.initialQuota < 0L then
+            raise <| invalidArg "initialQuota" "cannot be negative"
+        do state <- { state with quota = init.initialQuota }
+
+        do state <- { state with partition = Some init.topicId }
+
+        return! this.RefreshReaderImpl ()
     }
 
     member this.IssueQuotaImpl count = task {
         if count < 0 then
             return raise <| invalidArg "count" "cannot be negative"
-        do state <- { state with quota = state.quota + count }
-        return! this.RefreshReaderImpl false
+        do state <- { state with quota = state.quota + int64 count }
+        return! this.RefreshReaderImpl ()
     }
 
     member this.SubscribeImpl observer = task {
         if subs.IsSubscribed observer |> not then
             do subs.Subscribe observer
-            return! this.RefreshReaderImpl false
+            return! this.RefreshReaderImpl ()
     }
 
     member this.UnsubscribeImpl observer = task {
@@ -166,11 +153,11 @@ type MessageReaderGrain(readerOptions: MessageReaderOptions) =
 
     interface IMessageReaderRefresh with
         member this.RefreshReader available =
-            this.RefreshReaderImpl available
+            this.RefreshReaderImpl ()
 
     interface IMessageReader with
-        member this.StartFromSequence sequence =
-            this.StartFromSequenceImpl sequence
+        member this.Initialize init =
+            this.InitializeImpl init
 
         member this.IssueQuota count =
             this.IssueQuotaImpl count
@@ -183,13 +170,14 @@ type MessageReaderGrain(readerOptions: MessageReaderOptions) =
 
     interface IMessageChunkObserver with
         member this.MessagesAvailable() =
-            let partition = this.GetPrimaryKeyString()
+            let partition = this.GetPrimaryKey()
             let self = this.GrainFactory.GetGrain<IMessageReaderRefresh>(partition)
             // TODO: Do this work? It makes me uncomfortable the ignore!!!
             do self.RefreshReader true |> ignore
 
         member this.MessagesComplete() =
-            let partition = this.GetPrimaryKeyString()
-            let self = this.GrainFactory.GetGrain<IMessageReaderRefresh>(partition)
+            // let partition = this.GetPrimaryKey()
+            // let self = this.GrainFactory.GetGrain<IMessageReaderRefresh>(partition)
             // TODO: Do this work? It makes me uncomfortable the ignore!!!
-            do self.RefreshReader false |> ignore
+            // do self.RefreshReader false |> ignore
+            do ()

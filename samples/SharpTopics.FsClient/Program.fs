@@ -242,14 +242,18 @@ let replTest() =
                         member __.AcceptMessages messages =
                             let msgs = messages.messages |> List.map msgToString
                             printfn "%A" msgs
-                            printfn "allMessagesHasBeenRead = %b" messages.allMessagesHasBeenRead
+                            printfn "endOfCurrentTopic = %b" messages.endOfCurrentTopic
                             countLeft := !countLeft - (List.length msgs)
                             if !countLeft <= 0 then doneSource.SetResult ()
                 }
             let! observer = client.CreateObjectReference(observerImpl)
-            let reader = client.GetGrain<IMessageReader>(topicName)
+            let readerId = Guid.NewGuid()
+            let reader = client.GetGrain<IMessageReader>(readerId)
             do! reader.Subscribe(observer)
-            do! reader.IssueQuota(count)
+            do! MessageReaderInit.create topicName 
+                |> Lens.set MessageReaderInit.initialQuota (int64 count)
+                |> reader.Initialize
+            // do! reader.IssueQuota(count)
             do! doneSource.Task
             printfn "DONE reading messages"
 
