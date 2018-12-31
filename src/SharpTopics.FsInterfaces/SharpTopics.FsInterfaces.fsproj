@@ -5,6 +5,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="TopicProperty.fs" />
     <Compile Include="MessagePublisher.fs" />
     <Compile Include="MessageChunk.fs" />
     <Compile Include="MessageReader.fs" />

@@ -1,9 +1,6 @@
 ﻿namespace SharpTopics.Core
 
 open System.Threading.Tasks
-open System.Collections.Generic
-open SharpFunky
-open FSharp.Control.Tasks.V2
 
 type MessageStoreStatus = {
     isFrozen: bool

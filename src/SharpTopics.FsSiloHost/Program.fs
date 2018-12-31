@@ -10,7 +10,6 @@ open SharpTopics.FsGrains
 open SharpTopics.Core
 open SharpTopics.AzureStorage
 open Microsoft.Extensions.Configuration
-open Microsoft.WindowsAzure.Storage
 open Orleans.ApplicationParts
 
 let createConfig argv =
